@@ -1,0 +1,22 @@
+import app from './app';
+import { config } from './config';
+
+const server = app.listen(config.port, () => {
+  console.log(`=========================================`);
+  console.log(`  IoT Smart Lock Backend listening on port: ${config.port}`);
+  console.log(`  Environment: ${config.nodeEnv}`);
+  console.log(`=========================================`);
+});
+
+// Handle graceful shutdown
+const gracefulShutdown = () => {
+  console.log('Shutting down gracefully...');
+  server.close(() => {
+    console.log('HTTP server closed.');
+    process.exit(0);
+  });
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+export default server;

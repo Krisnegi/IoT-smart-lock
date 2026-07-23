@@ -1,0 +1,94 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum LockStatus {
+  LOCKED
+  UNLOCKED
+}
+
+enum AccessMethod {
+  API
+  PIN
+}
+
+enum AccessResult {
+  SUCCESS
+  FAILED_UNAUTHORIZED
+  FAILED_EXPIRED_PIN
+  FAILED_OFFLINE
+  FAILED_DEVICE_ERROR
+}
+
+model User {
+  id          String               @id @default(uuid())
+  email       String               @unique
+  password    String
+  role        Role                 @default(USER)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  permissions UserLockPermission[]
+  logs        AccessLog[]
+  tempPins    TemporaryPin[]
+}
+
+model Lock {
+  id            String               @id // Custom ID like "lock-01" matching simulated ESP32
+  name          String
+  status        LockStatus           @default(LOCKED)
+  lastHeartbeat DateTime?
+  isOnline      Boolean              @default(false)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  permissions   UserLockPermission[]
+  logs          AccessLog[]
+  tempPins      TemporaryPin[]
+}
+
+model UserLockPermission {
+  id        String   @id @default(uuid())
+  userId    String
+  lockId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lock      Lock     @relation(fields: [lockId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, lockId])
+}
+
+model TemporaryPin {
+  id        String   @id @default(uuid())
+  lockId    String
+  userId    String
+  pin       String
+  expiresAt DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  
+  lock      Lock     @relation(fields: [lockId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AccessLog {
+  id        String       @id @default(uuid())
+  lockId    String
+  userId    String?
+  pinUsed   String?
+  method    AccessMethod
+  result    AccessResult
+  timestamp DateTime     @default(now())
+
+  lock      Lock         @relation(fields: [lockId], references: [id], onDelete: Cascade)
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
