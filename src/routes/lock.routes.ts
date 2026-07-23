@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createLock, getAllLocks, getLockById, updateLock, deleteLock } from '../controllers/lock.controller';
+import { createLock, getAllLocks, getLockById, updateLock, deleteLock, unlockLock } from '../controllers/lock.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { Role } from '@prisma/client';
 
@@ -7,6 +7,9 @@ const router = Router();
 
 // Apply authentication middleware globally to all lock routes
 router.use(authenticate);
+
+// Control Route (Checks dynamic user permissions inside controller)
+router.post('/:id/unlock', unlockLock);
 
 // CRUD Routes
 router.post('/', authorize([Role.ADMIN]), createLock);

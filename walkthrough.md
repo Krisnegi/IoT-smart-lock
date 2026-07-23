@@ -96,3 +96,25 @@
   * Admin revokes standard user access to `lock-01` (`200 OK`).
   * Standard User retrieves allowed locks and receives an empty list.
   * Admin cleans up and deletes both locks (`200 OK`).
+
+---
+
+## Phase 4 - MQTT Integration & Command-Ack Flow
+
+### Changes Made
+1. **MQTT Client Configuration:**
+   * Created [config/mqtt.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/config/mqtt.ts) connecting backend server to local Mosquitto MQTT broker on `port 1883`.
+   * Subscribed to `locks/+/ack` topic for asynchronous device confirmations.
+2. **Asynchronous Request-Response Bridge:**
+   * Implemented [transaction.service.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/services/transaction.service.ts) to bridge REST requests (sync) and MQTT messages (async) using an in-memory map of pending promises (tracked with `transactionId` and a 5-second automatic timeout reject).
+   * Implemented [mqtt.service.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/services/mqtt.service.ts) to publish `UNLOCK` commands to `locks/:lockId/commands` and process device ACKs on `locks/:lockId/ack`, which resolves the pending transaction.
+3. **Lock Control Controller:**
+   * Implemented the `POST /api/locks/:id/unlock` endpoint inside [lock.controller.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/controllers/lock.controller.ts) which checks user permissions, fires the MQTT command, waits for acknowledgement, updates lock DB status to `UNLOCKED`, and logs audit records (`AccessLog` successes or timeouts/unauthorized failures).
+4. **IoT Lock Simulator:**
+   * Created [lock-simulator.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/simulator/lock-simulator.ts) (TypeScript source) and [lock-simulator.js](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/simulator/lock-simulator.js) (instant-booting Node JS script) mimicking virtual hardware lock controller operations over MQTT.
+
+### Verification & Validation Results
+* Ran automated E2E verification script `scratch/test_mqtt_e2e.js`:
+  * **Test 1 (Offline Lock):** Attempted unlocking `lock-01` without simulator. Triggered 5-second timeout, recorded audit log as `FAILED_OFFLINE`, and successfully returned `504 Gateway Timeout`.
+  * **Test 2 (Online Lock):** Started simulator child process. Sent unlock request. Simulator received MQTT command, performed 1-second simulated mechanical lock turning, and published ACK success. Backend caught ACK, resolved original HTTP request in `1.0s` with status `200 OK`, changed status in database to `UNLOCKED`, and recorded `SUCCESS` audit log.
+  * **Test 3 (Unauthorized Access):** Authenticated standard user without access permissions tries to unlock `lock-01`. Blocked instantly with `403 Forbidden` and saved `FAILED_UNAUTHORIZED` audit log.

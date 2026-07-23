@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/db';
-import { LockStatus } from '@prisma/client';
+import { LockStatus, Role, AccessMethod, AccessResult } from '@prisma/client';
+import { transactionService } from '../services/transaction.service';
+import { publishUnlockCommand } from '../services/mqtt.service';
 
 export const createLock = async (req: Request, res: Response) => {
   try {
@@ -102,6 +104,101 @@ export const deleteLock = async (req: Request, res: Response) => {
     return res.status(200).json({ message: `Lock '${id}' deleted successfully` });
   } catch (error) {
     console.error('Delete lock error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const unlockLock = async (req: Request, res: Response) => {
+  const { id: lockId } = req.params;
+  const user = req.user;
+
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized: Authentication required' });
+  }
+
+  try {
+    // 1. Verify lock exists
+    const lock = await prisma.lock.findUnique({ where: { id: lockId } });
+    if (!lock) {
+      return res.status(404).json({ error: 'Lock not found' });
+    }
+
+    // 2. Verify permission (Admin can access any lock. Managers/Users check the permission mapping)
+    if (user.role !== Role.ADMIN) {
+      const hasPermission = await prisma.userLockPermission.findUnique({
+        where: {
+          userId_lockId: { userId: user.id, lockId },
+        },
+      });
+
+      if (!hasPermission) {
+        // Log unauthorized attempt in audit log
+        await prisma.accessLog.create({
+          data: {
+            lockId,
+            userId: user.id,
+            method: AccessMethod.API,
+            result: AccessResult.FAILED_UNAUTHORIZED,
+          },
+        });
+        return res.status(403).json({ error: 'Forbidden: You do not have permission to unlock this lock' });
+      }
+    }
+
+    // 3. Create transient transaction
+    const { transactionId, promise } = transactionService.createTransaction();
+
+    // 4. Publish MQTT command
+    publishUnlockCommand(lockId, transactionId);
+
+    // 5. Wait for Lock Simulator ACK
+    try {
+      await promise;
+
+      // 6. On success, update lock status to UNLOCKED
+      const updatedLock = await prisma.lock.update({
+        where: { id: lockId },
+        data: { status: LockStatus.UNLOCKED },
+      });
+
+      // Log successful access attempt
+      await prisma.accessLog.create({
+        data: {
+          lockId,
+          userId: user.id,
+          method: AccessMethod.API,
+          result: AccessResult.SUCCESS,
+        },
+      });
+
+      return res.status(200).json({
+        message: 'Unlock command executed successfully',
+        lock: updatedLock,
+      });
+    } catch (cmdError: any) {
+      console.warn(`Command-Ack failed for lock ${lockId}:`, cmdError.message);
+
+      let accessResult: AccessResult = AccessResult.FAILED_DEVICE_ERROR;
+      if (cmdError.message === 'Device response timeout') {
+        accessResult = AccessResult.FAILED_OFFLINE; // Device did not respond (timeout)
+      }
+
+      // Log failed attempt
+      await prisma.accessLog.create({
+        data: {
+          lockId,
+          userId: user.id,
+          method: AccessMethod.API,
+          result: accessResult,
+        },
+      });
+
+      return res.status(504).json({
+        error: `Unlock failed: ${cmdError.message || 'Device communication error'}`,
+      });
+    }
+  } catch (error) {
+    console.error('Unlock lock error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

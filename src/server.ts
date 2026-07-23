@@ -1,5 +1,10 @@
 import app from './app';
 import { config } from './config';
+import { initMqttSubscriptions } from './services/mqtt.service';
+import './config/mqtt'; // Boot connection
+
+// Start MQTT message parsing listeners
+initMqttSubscriptions();
 
 const server = app.listen(config.port, () => {
   console.log(`=========================================`);
