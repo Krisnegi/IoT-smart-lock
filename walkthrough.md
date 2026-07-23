@@ -111,7 +111,7 @@
 3. **Lock Control Controller:**
    * Implemented the `POST /api/locks/:id/unlock` endpoint inside [lock.controller.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/controllers/lock.controller.ts) which checks user permissions, fires the MQTT command, waits for acknowledgement, updates lock DB status to `UNLOCKED`, and logs audit records (`AccessLog` successes or timeouts/unauthorized failures).
 4. **IoT Lock Simulator:**
-   * Created [lock-simulator.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/simulator/lock-simulator.ts) (TypeScript source) and [lock-simulator.js](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/simulator/lock-simulator.js) (instant-booting Node JS script) mimicking virtual hardware lock controller operations over MQTT.
+   * Created [lock-simulator.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/simulator/lock-simulator.ts) mimicking virtual hardware lock controller operations over MQTT.
 
 ### Verification & Validation Results
 * Ran automated E2E verification script `scratch/test_mqtt_e2e.js`:
