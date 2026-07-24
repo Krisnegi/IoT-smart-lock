@@ -3,6 +3,7 @@ import { prisma } from '../config/db';
 import { LockStatus, Role, AccessMethod, AccessResult } from '@prisma/client';
 import { transactionService } from '../services/transaction.service';
 import { publishUnlockCommand } from '../services/mqtt.service';
+import { schedulePinExpiration } from '../queues/pin-expiration.queue';
 
 export const createLock = async (req: Request, res: Response) => {
   try {
@@ -199,6 +200,60 @@ export const unlockLock = async (req: Request, res: Response) => {
     }
   } catch (error) {
     console.error('Unlock lock error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const createTempPin = async (req: Request, res: Response) => {
+  const { id: lockId } = req.params;
+  const { userId, pin, durationSeconds } = req.body;
+
+  if (!userId || !pin || !durationSeconds) {
+    return res.status(400).json({ error: 'userId, pin, and durationSeconds are required' });
+  }
+
+  try {
+    // 1. Verify lock exists
+    const lock = await prisma.lock.findUnique({ where: { id: lockId } });
+    if (!lock) {
+      return res.status(404).json({ error: 'Lock not found' });
+    }
+
+    // 2. Verify user exists
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // 3. Calculate expiration date
+    const expiresAt = new Date(Date.now() + durationSeconds * 1000);
+
+    // 4. Create TemporaryPin in database
+    const tempPin = await prisma.temporaryPin.create({
+      data: {
+        lockId,
+        userId,
+        pin,
+        expiresAt,
+      },
+    });
+
+    // 5. Schedule BullMQ job for expiration
+    await schedulePinExpiration(tempPin.id, durationSeconds * 1000);
+
+    return res.status(201).json({
+      message: 'Temporary PIN created and scheduled for expiration successfully',
+      tempPin: {
+        id: tempPin.id,
+        lockId: tempPin.lockId,
+        userId: tempPin.userId,
+        pin: tempPin.pin,
+        expiresAt: tempPin.expiresAt,
+        isActive: tempPin.isActive,
+      },
+    });
+  } catch (error) {
+    console.error('Create temporary PIN error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

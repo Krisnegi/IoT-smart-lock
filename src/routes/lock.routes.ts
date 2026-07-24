@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createLock, getAllLocks, getLockById, updateLock, deleteLock, unlockLock } from '../controllers/lock.controller';
+import { createLock, getAllLocks, getLockById, updateLock, deleteLock, unlockLock, createTempPin } from '../controllers/lock.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { Role } from '@prisma/client';
 
@@ -10,6 +10,9 @@ router.use(authenticate);
 
 // Control Route (Checks dynamic user permissions inside controller)
 router.post('/:id/unlock', unlockLock);
+
+// Temporary Access PIN creation
+router.post('/:id/temp-pin', authorize([Role.ADMIN, Role.MANAGER]), createTempPin);
 
 // CRUD Routes
 router.post('/', authorize([Role.ADMIN]), createLock);

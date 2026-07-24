@@ -16,6 +16,24 @@ mqttClient.on('connect', () => {
       console.log('📡 Subscribed to MQTT topic: locks/+/ack');
     }
   });
+
+  // Subscribe to PIN validation requests from locks
+  mqttClient.subscribe('locks/+/validate-pin', (err) => {
+    if (err) {
+      console.error('Failed to subscribe to locks/+/validate-pin:', err);
+    } else {
+      console.log('📡 Subscribed to MQTT topic: locks/+/validate-pin');
+    }
+  });
+
+  // Subscribe to lock hardware events (like PIN confirmation and heartbeats)
+  mqttClient.subscribe('locks/+/events', (err) => {
+    if (err) {
+      console.error('Failed to subscribe to locks/+/events:', err);
+    } else {
+      console.log('📡 Subscribed to MQTT topic: locks/+/events');
+    }
+  });
 });
 
 mqttClient.on('error', (err) => {

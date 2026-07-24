@@ -2,6 +2,7 @@ import app from './app';
 import { config } from './config';
 import { initMqttSubscriptions } from './services/mqtt.service';
 import './config/mqtt'; // Boot connection
+import './queues/pin-expiration.worker'; // Boot BullMQ Worker
 
 // Start MQTT message parsing listeners
 initMqttSubscriptions();

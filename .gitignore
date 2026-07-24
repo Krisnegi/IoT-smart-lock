@@ -4,3 +4,4 @@ dist/
 *.log
 mosquitto/data/
 mosquitto/log/
+scratch/
