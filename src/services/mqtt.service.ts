@@ -2,6 +2,7 @@ import { mqttClient } from '../config/mqtt';
 import { transactionService } from './transaction.service';
 import { prisma } from '../config/db';
 import { AccessMethod, AccessResult } from '@prisma/client';
+import { broadcastEvent } from '../ws';
 
 /**
  * Publishes an UNLOCK command payload to a specific lock via MQTT.
@@ -79,6 +80,13 @@ export const initMqttSubscriptions = () => {
               result: AccessResult.FAILED_UNAUTHORIZED,
             },
           });
+
+          broadcastEvent('ACCESS_DENIED', {
+            lockId,
+            method: 'PIN',
+            reason: 'FAILED_UNAUTHORIZED',
+            message: `Access denied at lock ${lockId}: Invalid PIN typed`,
+          });
           return;
         }
 
@@ -96,6 +104,14 @@ export const initMqttSubscriptions = () => {
               method: AccessMethod.PIN,
               result: AccessResult.FAILED_EXPIRED_PIN,
             },
+          });
+
+          broadcastEvent('ACCESS_DENIED', {
+            lockId,
+            method: 'PIN',
+            reason: 'FAILED_EXPIRED_PIN',
+            userId: pinRecord.userId,
+            message: `Access denied at lock ${lockId}: Expired PIN typed`,
           });
           return;
         }
@@ -127,6 +143,13 @@ export const initMqttSubscriptions = () => {
               method: AccessMethod.PIN,
               result: AccessResult.SUCCESS,
             },
+          });
+
+          broadcastEvent('LOCK_UNLOCKED', {
+            lockId,
+            method: 'PIN',
+            userId,
+            message: `Lock ${lockId} unlocked successfully via Keypad PIN`,
           });
         }
         return;

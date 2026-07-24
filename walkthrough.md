@@ -118,3 +118,30 @@
   * **Test 1 (Offline Lock):** Attempted unlocking `lock-01` without simulator. Triggered 5-second timeout, recorded audit log as `FAILED_OFFLINE`, and successfully returned `504 Gateway Timeout`.
   * **Test 2 (Online Lock):** Started simulator child process. Sent unlock request. Simulator received MQTT command, performed 1-second simulated mechanical lock turning, and published ACK success. Backend caught ACK, resolved original HTTP request in `1.0s` with status `200 OK`, changed status in database to `UNLOCKED`, and recorded `SUCCESS` audit log.
   * **Test 3 (Unauthorized Access):** Authenticated standard user without access permissions tries to unlock `lock-01`. Blocked instantly with `403 Forbidden` and saved `FAILED_UNAUTHORIZED` audit log.
+
+---
+
+## Phase 5 - Temporary Access & BullMQ Background Jobs
+
+### Changes Made
+1. **API for Temporary Credentials:**
+   * Created `POST /api/locks/:id/temp-pin` in [lock.controller.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/controllers/lock.controller.ts). Admins/Managers can create short-term PINs.
+2. **Delayed Job Scheduler (BullMQ + Redis):**
+   * Configured [pin-expiration.queue.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/queues/pin-expiration.queue.ts) to enqueue delayed expiration jobs in Redis.
+   * Built [pin-expiration.worker.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/queues/pin-expiration.worker.ts) that polls Redis. Once the delay elapses, it deactivates the PIN in the database (`isActive = false`).
+3. **Event-Driven Online PIN Verification:**
+   * Configured MQTT listeners for `locks/+/validate-pin` and `locks/+/events` in [mqtt.service.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/services/mqtt.service.ts).
+   * **Keypad Entry Flow:**
+     1. Lock simulator keypad input publishes query on `locks/:lockId/validate-pin` with `{ pin, transactionId }`.
+     2. Backend validates against `TemporaryPin` DB table. If active and unexpired, replies `{ allowed: true, transactionId, userId }` on `locks/:lockId/validate-pin/reply`. (If invalid/expired, immediately logs failure audit in DB and replies `allowed: false`).
+     3. Simulator turns mechanical lock and publishes confirmation event to `locks/:lockId/events` with `{ event: 'PIN_ACCESS_GRANTED', pin, userId }`.
+     4. Backend catches confirmation event and commits `SUCCESS` audit log in the database.
+4. **Simulator Keypad Press Implementation:**
+   * Refactored [lock-simulator.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/simulator/lock-simulator.ts) to accept numeric inputs from command-line standard input (`stdin`), publish validate queries, process replies, turn the motor, and publish success confirmation events.
+
+### Verification & Validation Results
+* Created and executed automated E2E script `scratch/test_bullmq_e2e.js`:
+  * **Test A (Valid Keypad Entry):** Registered 5s temp PIN `4820`. Sent `4820` to simulator stdin. Simulator validated PIN, received `allowed: true`, unlocked, and sent confirmation event. Verification asserted a `SUCCESS` log with method `PIN` was inserted in DB.
+  * **Worker Expiration Execution:** Verification script waited 4 seconds (8.5s total time). Verification asserted the BullMQ worker ran, updated the DB status to `isActive = false`, and successfully printed expiration logs.
+  * **Test B (Expired Keypad Entry):** Sent `4820` to simulator stdin after expiration. Backend rejected validation, simulator denied access, and verification asserted a `FAILED_EXPIRED_PIN` log was written.
+  * **Test C (Unauthorized Entry):** Sent random PIN `9999`. Validation failed, simulator denied access, and verification asserted a `FAILED_UNAUTHORIZED` log was written.

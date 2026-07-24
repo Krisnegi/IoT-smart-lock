@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import authRoutes from './routes/auth.routes';
 import lockRoutes from './routes/lock.routes';
 import permissionRoutes from './routes/permission.routes';
@@ -9,6 +10,9 @@ const app = express();
 // Global Middlewares
 app.use(cors());
 app.use(express.json());
+
+// Serve static dashboard files
+app.use('/dashboard', express.static(path.join(__dirname, '../dashboard')));
 
 // API Routes
 app.use('/api/auth', authRoutes);

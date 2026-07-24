@@ -4,6 +4,7 @@ import { LockStatus, Role, AccessMethod, AccessResult } from '@prisma/client';
 import { transactionService } from '../services/transaction.service';
 import { publishUnlockCommand } from '../services/mqtt.service';
 import { schedulePinExpiration } from '../queues/pin-expiration.queue';
+import { broadcastEvent } from '../ws';
 
 export const createLock = async (req: Request, res: Response) => {
   try {
@@ -142,6 +143,15 @@ export const unlockLock = async (req: Request, res: Response) => {
             result: AccessResult.FAILED_UNAUTHORIZED,
           },
         });
+        
+        broadcastEvent('ACCESS_DENIED', {
+          lockId,
+          method: 'API',
+          reason: 'FAILED_UNAUTHORIZED',
+          user: { id: user.id, email: user.email },
+          message: `Unauthorized remote unlock attempt on lock ${lockId} by ${user.email}`,
+        });
+
         return res.status(403).json({ error: 'Forbidden: You do not have permission to unlock this lock' });
       }
     }
@@ -172,6 +182,13 @@ export const unlockLock = async (req: Request, res: Response) => {
         },
       });
 
+      broadcastEvent('LOCK_UNLOCKED', {
+        lockId,
+        method: 'API',
+        user: { id: user.id, email: user.email },
+        message: `Lock ${lockId} unlocked remotely by user ${user.email}`,
+      });
+
       return res.status(200).json({
         message: 'Unlock command executed successfully',
         lock: updatedLock,
@@ -192,6 +209,14 @@ export const unlockLock = async (req: Request, res: Response) => {
           method: AccessMethod.API,
           result: accessResult,
         },
+      });
+
+      broadcastEvent('UNLOCK_FAILED', {
+        lockId,
+        method: 'API',
+        user: { id: user.id, email: user.email },
+        reason: accessResult,
+        message: `Remote unlock failed for lock ${lockId}: ${cmdError.message}`,
       });
 
       return res.status(504).json({

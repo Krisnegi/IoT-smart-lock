@@ -1,6 +1,7 @@
 import app from './app';
 import { config } from './config';
 import { initMqttSubscriptions } from './services/mqtt.service';
+import { initWebSocketServer } from './ws';
 import './config/mqtt'; // Boot connection
 import './queues/pin-expiration.worker'; // Boot BullMQ Worker
 
@@ -13,6 +14,9 @@ const server = app.listen(config.port, () => {
   console.log(`  Environment: ${config.nodeEnv}`);
   console.log(`=========================================`);
 });
+
+// Start WebSocket server sharing the same HTTP port
+initWebSocketServer(server);
 
 // Handle graceful shutdown
 const gracefulShutdown = () => {
