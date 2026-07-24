@@ -144,4 +144,45 @@
   * **Test A (Valid Keypad Entry):** Registered 5s temp PIN `4820`. Sent `4820` to simulator stdin. Simulator validated PIN, received `allowed: true`, unlocked, and sent confirmation event. Verification asserted a `SUCCESS` log with method `PIN` was inserted in DB.
   * **Worker Expiration Execution:** Verification script waited 4 seconds (8.5s total time). Verification asserted the BullMQ worker ran, updated the DB status to `isActive = false`, and successfully printed expiration logs.
   * **Test B (Expired Keypad Entry):** Sent `4820` to simulator stdin after expiration. Backend rejected validation, simulator denied access, and verification asserted a `FAILED_EXPIRED_PIN` log was written.
-  * **Test C (Unauthorized Entry):** Sent random PIN `9999`. Validation failed, simulator denied access, and verification asserted a `FAILED_UNAUTHORIZED` log was written.
+  * Test C (Unauthorized Entry): Sent random PIN '9999'. Validation failed, simulator denied access, and verification asserted a 'FAILED_UNAUTHORIZED' log was written.
+
+---
+
+## Phase 6 - WebSockets & Live Dashboard Updates
+
+### Changes Made
+1. **HTTP/WebSocket Server Integration:**
+   * Configured [ws/index.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/ws/index.ts) utilizing the `'ws'` package.
+   * Bound the WebSocket upgrade handler to the Express server in [server.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/server.ts), allowing HTTP requests and live sockets to run on the single port `3000`.
+2. **WebSocket Client Streaming (Broadcasts):**
+   * Implemented `broadcastEvent` helper that pushes live JSON logs/status events to all connected clients.
+   * Injected broadcast event triggers in [lock.controller.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/controllers/lock.controller.ts) (remote API unlocks) and [mqtt.service.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/services/mqtt.service.ts) (keypad entries and failures).
+3. **Glassmorphic HTML UI Dashboard:**
+   * Built [dashboard/index.html](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/dashboard/index.html) serving stats (Successes, Denied attempts, failures) and a live logging activity feed.
+   * Configured Express to serve the dashboard folder as static assets at `/dashboard` endpoint in [app.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/app.ts).
+
+### Verification & Validation Results
+* Created and executed verification script `scratch/test_websockets_e2e.js`:
+  * Connected a test WebSocket client to `ws://localhost:3000`.
+  * Triggered PIN access; verified client received `LOCK_UNLOCKED` event.
+  * Triggered expired access; verified client received `ACCESS_DENIED` event.
+
+---
+
+## Phase 7 - Device Heartbeat & Offline Detection
+
+### Changes Made
+1. **Simulator Periodic Heartbeats:**
+   * Updated [lock-simulator.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/simulator/lock-simulator.ts) to publish immediate heartbeats upon MQTT connection and periodically every 10 seconds to `locks/:lockId/heartbeat` with `{ status: 'LOCKED' | 'UNLOCKED', timestamp }`.
+2. **Auto-Relock Logic:**
+   * Configured simulator to auto-relock physically (state change back to `LOCKED`) 5 seconds after any successful unlock.
+3. **Backend Heartbeat Receiver & Monitor:**
+   * Added handler for `locks/+/heartbeat` in [mqtt.service.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/services/mqtt.service.ts) that updates `lastHeartbeat` and marks `isOnline = true` in the DB.
+   * Created background heartbeat monitoring checker [services/heartbeat.service.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/services/heartbeat.service.ts) running every 15 seconds. If a lock has not sent a heartbeat in the past 30 seconds, it is flagged as `isOnline = false` and broadcasts `LOCK_OFFLINE` over WebSockets.
+4. **Dashboard Registered Devices Panel:**
+   * Enhanced dashboard UI to display a live list of registered locks, updating their online/offline states and locking modes in real time.
+
+### Verification & Validation Results
+* Executed verification script `scratch/test_heartbeat_e2e.js`:
+  * **Test A (Online):** Started simulator. Verified database set `isOnline = true`, and client received `LOCK_ONLINE` event immediately.
+  * **Test B (Offline):** Terminated simulator. Waited 35 seconds. Verified background heartbeat-checker ran, updated `isOnline = false` in DB, and client received `LOCK_OFFLINE` event.
