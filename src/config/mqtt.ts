@@ -34,6 +34,15 @@ mqttClient.on('connect', () => {
       console.log('📡 Subscribed to MQTT topic: locks/+/events');
     }
   });
+
+  // Subscribe to lock heartbeat topic
+  mqttClient.subscribe('locks/+/heartbeat', (err) => {
+    if (err) {
+      console.error('Failed to subscribe to locks/+/heartbeat:', err);
+    } else {
+      console.log('📡 Subscribed to MQTT topic: locks/+/heartbeat');
+    }
+  });
 });
 
 mqttClient.on('error', (err) => {

@@ -12,8 +12,38 @@ console.log(`🔌 Connecting to MQTT Broker at ${BROKER_URL}...`);
 
 const client = mqtt.connect(BROKER_URL);
 
-// Track active PIN entries to match validation replies
+// Track status and pending events
+let currentStatus = 'LOCKED';
+let relockTimeout: NodeJS.Timeout | null = null;
 const pendingValidations = new Map<string, { pin: string }>();
+
+// Function to handle physical unlocking and scheduling auto-relock
+const triggerPhysicalUnlock = () => {
+  currentStatus = 'UNLOCKED';
+  console.log(`🔓 Status changed: UNLOCKED`);
+
+  if (relockTimeout) {
+    clearTimeout(relockTimeout);
+  }
+
+  // Auto-relock after 5 seconds (standard smart lock behavior)
+  relockTimeout = setTimeout(() => {
+    currentStatus = 'LOCKED';
+    console.log(`🔒 Status changed: LOCKED (Auto-relocked)`);
+  }, 5000);
+};
+
+const sendHeartbeat = () => {
+  if (client.connected) {
+    const heartbeatTopic = `locks/${LOCK_ID}/heartbeat`;
+    const payload = JSON.stringify({
+      status: currentStatus,
+      timestamp: new Date().toISOString(),
+    });
+    client.publish(heartbeatTopic, payload, { qos: 1 });
+    console.log(`📡 Heartbeat published to [${heartbeatTopic}]: status = ${currentStatus}`);
+  }
+};
 
 client.on('connect', () => {
   console.log(`✅ Lock Simulator [${LOCK_ID}] connected to MQTT Broker.`);
@@ -31,6 +61,12 @@ client.on('connect', () => {
       console.log(`⌨️  You can type a PIN code directly in this terminal to simulate a keypad entry!`);
     }
   });
+
+  // Publish immediate heartbeat upon connection
+  sendHeartbeat();
+
+  // Start periodic heartbeat every 10 seconds
+  setInterval(sendHeartbeat, 10000);
 });
 
 // Capture keyboard input to simulate typing a PIN on the lock's physical keypad
@@ -71,6 +107,7 @@ client.on('message', (topic, message) => {
           const ackTopic = `locks/${LOCK_ID}/ack`;
           client.publish(ackTopic, JSON.stringify({ transactionId, status: 'SUCCESS' }), { qos: 1 });
           console.log(`✅ Lock [${LOCK_ID}] unlocked successfully.`);
+          triggerPhysicalUnlock();
         }, 1000);
       }
       return;
@@ -96,6 +133,7 @@ client.on('message', (topic, message) => {
           });
           client.publish(eventTopic, eventPayload, { qos: 1 });
           console.log(`✅ Access success event confirmed and published to ${eventTopic}.`);
+          triggerPhysicalUnlock();
         }, 1000);
       } else {
         console.log(`🛑 Authorization DENIED by backend. Access refused.`);

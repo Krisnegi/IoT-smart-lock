@@ -2,6 +2,7 @@ import app from './app';
 import { config } from './config';
 import { initMqttSubscriptions } from './services/mqtt.service';
 import { initWebSocketServer } from './ws';
+import { startHeartbeatChecker, stopHeartbeatChecker } from './services/heartbeat.service';
 import './config/mqtt'; // Boot connection
 import './queues/pin-expiration.worker'; // Boot BullMQ Worker
 
@@ -18,9 +19,13 @@ const server = app.listen(config.port, () => {
 // Start WebSocket server sharing the same HTTP port
 initWebSocketServer(server);
 
+// Start background device status heartbeat monitors
+startHeartbeatChecker();
+
 // Handle graceful shutdown
 const gracefulShutdown = () => {
   console.log('Shutting down gracefully...');
+  stopHeartbeatChecker();
   server.close(() => {
     console.log('HTTP server closed.');
     process.exit(0);

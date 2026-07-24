@@ -183,10 +183,72 @@
       color: #fbbf24;
     }
 
+    /* Devices Status List styles */
+    .devices-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .device-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+
+    .device-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .device-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .device-status-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .device-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: var(--text-muted);
+      box-shadow: 0 0 5px var(--text-muted);
+      transition: all 0.3s ease;
+    }
+
+    .device-indicator.online {
+      background-color: var(--success);
+      box-shadow: 0 0 10px var(--success);
+    }
+
+    .device-indicator.offline {
+      background-color: var(--danger);
+      box-shadow: 0 0 10px var(--danger);
+    }
+
+    .device-item-empty {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 1rem 0;
+    }
+
     .logs-panel {
       display: flex;
       flex-direction: column;
-      height: 650px;
+      height: 750px;
     }
 
     .logs-container {
@@ -336,6 +398,14 @@
           </div>
         </div>
       </div>
+
+      <!-- Live Lock Status Grid -->
+      <div class="card">
+        <h2 class="card-title">Registered Smart Locks</h2>
+        <div id="devicesList" class="devices-list">
+          <div class="device-item-empty">No active lock heartbeats detected yet.</div>
+        </div>
+      </div>
     </div>
 
     <div class="card logs-panel">
@@ -354,6 +424,7 @@
     const statusText = document.getElementById('statusText');
     const logsContainer = document.getElementById('logsContainer');
     const emptyState = document.getElementById('emptyState');
+    const devicesList = document.getElementById('devicesList');
 
     // Stats elements
     const statSuccessEl = document.getElementById('statSuccess');
@@ -394,12 +465,69 @@
     }
 
     function handleWSMessage(msg) {
-      if (emptyState) {
+      if (emptyState && document.getElementById('emptyState')) {
         emptyState.remove();
       }
 
       const { type, payload, timestamp } = msg;
       const formattedTime = new Date(timestamp).toLocaleTimeString();
+
+      // Update Device List dynamically
+      const lockId = payload.lockId;
+      if (lockId) {
+        const emptyMsg = devicesList.querySelector('.device-item-empty');
+        if (emptyMsg) {
+          emptyMsg.remove();
+        }
+
+        let deviceItem = document.getElementById(`device-${lockId}`);
+        if (!deviceItem) {
+          deviceItem = document.createElement('div');
+          deviceItem.className = 'device-item';
+          deviceItem.id = `device-${lockId}`;
+          devicesList.appendChild(deviceItem);
+        }
+
+        let isOnline = true;
+        let lockStatusText = 'Online';
+
+        if (type === 'LOCK_OFFLINE') {
+          isOnline = false;
+          lockStatusText = 'Offline';
+        } else if (type === 'LOCK_ONLINE') {
+          isOnline = true;
+          lockStatusText = 'Online';
+        } else {
+          // Carry forward online state
+          const prevIndicator = deviceItem.querySelector('.device-indicator');
+          isOnline = prevIndicator ? prevIndicator.classList.contains('online') : true;
+          const prevStatusTextEl = deviceItem.querySelector('.device-status-label');
+          lockStatusText = prevStatusTextEl ? prevStatusTextEl.innerText : (isOnline ? 'Online' : 'Offline');
+        }
+
+        // Apply lock status tags
+        if (isOnline) {
+          if (type === 'LOCK_UNLOCKED') {
+            lockStatusText = 'Online - Unlocked';
+          } else if (type === 'LOCK_STATUS_CHANGED' && payload.status === 'LOCKED') {
+            lockStatusText = 'Online - Locked';
+          } else if (type === 'LOCK_STATUS_CHANGED' && payload.status === 'UNLOCKED') {
+            lockStatusText = 'Online - Unlocked';
+          }
+        } else {
+          lockStatusText = 'Offline';
+        }
+
+        const indicatorClass = isOnline ? 'online' : 'offline';
+
+        deviceItem.innerHTML = `
+          <div class="device-info">
+            <span class="device-name">${lockId}</span>
+            <span class="device-status-label">${lockStatusText}</span>
+          </div>
+          <div class="device-indicator ${indicatorClass}"></div>
+        `;
+      }
 
       // Create log element
       const logItem = document.createElement('div');
@@ -423,6 +551,15 @@
         badgeClass = 'failed';
         statFailedCount++;
         statFailedEl.innerText = statFailedCount;
+      } else if (type === 'LOCK_ONLINE') {
+        badgeText = 'Online';
+        badgeClass = 'unlocked';
+      } else if (type === 'LOCK_OFFLINE') {
+        badgeText = 'Offline';
+        badgeClass = 'denied';
+      } else if (type === 'LOCK_STATUS_CHANGED') {
+        badgeText = 'Status';
+        badgeClass = 'info';
       } else if (type === 'SYSTEM_INFO') {
         badgeText = 'System';
         badgeClass = 'info';

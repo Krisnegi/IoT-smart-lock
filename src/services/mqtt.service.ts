@@ -1,7 +1,7 @@
 import { mqttClient } from '../config/mqtt';
 import { transactionService } from './transaction.service';
 import { prisma } from '../config/db';
-import { AccessMethod, AccessResult } from '@prisma/client';
+import { AccessMethod, AccessResult, LockStatus } from '@prisma/client';
 import { broadcastEvent } from '../ws';
 
 /**
@@ -151,6 +151,48 @@ export const initMqttSubscriptions = () => {
             userId,
             message: `Lock ${lockId} unlocked successfully via Keypad PIN`,
           });
+        }
+        return;
+      }
+
+      // Match locks/:lockId/heartbeat
+      const heartbeatMatch = topic.match(/^locks\/([^/]+)\/heartbeat$/);
+      if (heartbeatMatch) {
+        const lockId = heartbeatMatch[1];
+        const { status } = data; // LOCKED or UNLOCKED
+
+        const lock = await prisma.lock.findUnique({ where: { id: lockId } });
+        if (lock) {
+          const wasOffline = !lock.isOnline;
+          const statusChanged = lock.status !== status;
+
+          await prisma.lock.update({
+            where: { id: lockId },
+            data: {
+              lastHeartbeat: new Date(),
+              isOnline: true,
+              status: status as any,
+            },
+          });
+
+          // Broadcast if lock transitioned from offline to online
+          if (wasOffline) {
+            console.log(`📡 Lock [${lockId}] is now ONLINE.`);
+            broadcastEvent('LOCK_ONLINE', {
+              lockId,
+              message: `Lock ${lockId} has connected online`,
+            });
+          }
+
+          // Broadcast if lock status changed via heartbeat update (like auto-relock)
+          if (statusChanged && !wasOffline) {
+            console.log(`📡 Lock [${lockId}] status changed to ${status} via heartbeat.`);
+            broadcastEvent('LOCK_STATUS_CHANGED', {
+              lockId,
+              status,
+              message: `Lock ${lockId} auto-relocked to ${status}`,
+            });
+          }
         }
         return;
       }
