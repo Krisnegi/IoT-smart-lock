@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import swaggerDocument from './config/swagger.json';
 import authRoutes from './routes/auth.routes';
 import lockRoutes from './routes/lock.routes';
 import permissionRoutes from './routes/permission.routes';
@@ -13,6 +15,9 @@ app.use(express.json());
 
 // Serve static dashboard files
 app.use('/dashboard', express.static(path.join(__dirname, '../dashboard')));
+
+// OpenAPI API documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // API Routes
 app.use('/api/auth', authRoutes);

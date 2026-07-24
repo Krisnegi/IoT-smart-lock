@@ -282,3 +282,35 @@ export const createTempPin = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const getLockLogs = async (req: Request, res: Response) => {
+  const { id: lockId } = req.params;
+
+  try {
+    // 1. Verify lock exists
+    const lock = await prisma.lock.findUnique({ where: { id: lockId } });
+    if (!lock) {
+      return res.status(404).json({ error: 'Lock not found' });
+    }
+
+    // 2. Query logs sorted by timestamp descending
+    const logs = await prisma.accessLog.findMany({
+      where: { lockId },
+      orderBy: { timestamp: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    return res.status(200).json({ logs });
+  } catch (error) {
+    console.error('Get lock logs error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
