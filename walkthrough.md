@@ -182,7 +182,22 @@
 4. **Dashboard Registered Devices Panel:**
    * Enhanced dashboard UI to display a live list of registered locks, updating their online/offline states and locking modes in real time.
 
-### Verification & Validation Results
-* Executed verification script `scratch/test_heartbeat_e2e.js`:
-  * **Test A (Online):** Started simulator. Verified database set `isOnline = true`, and client received `LOCK_ONLINE` event immediately.
   * **Test B (Offline):** Terminated simulator. Waited 35 seconds. Verified background heartbeat-checker ran, updated `isOnline = false` in DB, and client received `LOCK_OFFLINE` event.
+
+---
+
+## Phase 8 - Audit Logging & Swagger Documentation
+
+### Changes Made
+1. **Audit Logs Endpoint:**
+   * Implemented `GET /api/locks/:id/logs` in [lock.controller.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/controllers/lock.controller.ts) allowing Admins and Managers to retrieve complete access history (attempts, methods, results, users) sorted by timestamp descending.
+   * Registered route in [lock.routes.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/routes/lock.routes.ts).
+2. **Swagger/OpenAPI Documentation Schema:**
+   * Created [config/swagger.json](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/config/swagger.json) documenting all paths, authentication requirements (Bearer JWT), input bodies, parameters, and dynamic models.
+   * Loaded schema and mounted `swagger-ui-express` rendering documentation beautifully at `/api-docs` route inside [app.ts](file:///Users/krisnegi/Desktop/Personal/interview%20projects/IoT-smart-lock/src/app.ts).
+
+### Verification & Validation Results
+* Created and executed E2E verification script `scratch/test_audit_swagger_e2e.js`:
+  * **Test A (Audit Logs):** Triggered remote unlock API. Queried `/api/locks/lock-audit-test/logs` and verified access record exists in DB with correct method (`API`), result (`SUCCESS`), and user email (`admin@example.com`).
+  * **Test B (Swagger Serving):** Fetched `/api-docs/` endpoint and asserted output contains proper page title `"Swagger UI"`.
+
