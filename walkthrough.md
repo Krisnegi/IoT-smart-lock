@@ -201,3 +201,34 @@
   * **Test A (Audit Logs):** Triggered remote unlock API. Queried `/api/locks/lock-audit-test/logs` and verified access record exists in DB with correct method (`API`), result (`SUCCESS`), and user email (`admin@example.com`).
   * **Test B (Swagger Serving):** Fetched `/api-docs/` endpoint and asserted output contains proper page title `"Swagger UI"`.
 
+---
+
+## Phase 9 - Full-Stack React Dashboard & Visual Simulator Keypad
+
+### Changes Made
+1. **Workspace Restructuring:**
+   * Reorganized directories into a decoupled `backend/` and `frontend/` workspace structure.
+   * Moved all Express files, Prisma migrations, Mosquitto settings, and environment files to `backend/`.
+2. **Database Seeding (`backend/src/config/seed.ts`):**
+   * Configured an automated seeding function triggered during server bootup. 
+   * Pre-provisions a default admin demo user (`admin@example.com` / `adminpassword123`) and a default lock (`front-gate-01`) for recruiter click-and-test evaluation.
+3. **Keypad Simulator Proxy (`backend/src/controllers/simulator.controller.ts`):**
+   * Exposed `POST /api/simulator/keypad` that translates dashboard key clicks into raw MQTT validation queries (`locks/:lockId/validate-pin`).
+   * Hooked an auto-confirmation interceptor inside the backend MQTT handlers to automatically broadcast physical verification event codes back onto the broker when the virtual keypad is used in cloud-only environments.
+4. **Vite React Client (`frontend/`):**
+   * Created a single-page React client styled with **Tailwind CSS v4** and **Lucide Icons**.
+   * Implemented custom React Providers:
+     * `AuthContext.tsx` handling session states and one-click demo admin login.
+     * `WebSocketContext.tsx` handling live state listeners and activity log arrays.
+   * Built visual widgets:
+     * `VisualLockKeypad.tsx` rendering a physical-looking smart lock face with circular LED status rings and interactive buttons.
+     * `Dashboard.tsx` offering tabular views for logs console, devices grid, guest PIN creations, and permissions managers.
+
+### Verification & Validation Results
+* Executed E2E integration verification script `scratch/test_visual_keypad_e2e.js`:
+  * **Test A:** Logged in using seeded credentials (`admin@example.com` / `adminpassword123`).
+  * **Test B:** Created a 15-second temporary guest PIN code (`556677`) via HTTP REST.
+  * **Test C:** Triggered proxy keypad endpoint `/api/simulator/keypad` for `front-gate-01` with PIN `556677`.
+  * **Test D:** Verified that the backend successfully validated the PIN, triggered mock hardware events, and persisted a `SUCCESS` record inside Postgres.
+
+

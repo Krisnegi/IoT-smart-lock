@@ -43,6 +43,15 @@ mqttClient.on('connect', () => {
       console.log('📡 Subscribed to MQTT topic: locks/+/heartbeat');
     }
   });
+
+  // Subscribe to lock validation replies (for virtual UI keypad proxy events)
+  mqttClient.subscribe('locks/+/validate-pin/reply', (err) => {
+    if (err) {
+      console.error('Failed to subscribe to locks/+/validate-pin/reply:', err);
+    } else {
+      console.log('📡 Subscribed to MQTT topic: locks/+/validate-pin/reply');
+    }
+  });
 });
 
 mqttClient.on('error', (err) => {

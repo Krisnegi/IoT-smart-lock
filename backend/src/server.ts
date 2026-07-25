@@ -3,8 +3,12 @@ import { config } from './config';
 import { initMqttSubscriptions } from './services/mqtt.service';
 import { initWebSocketServer } from './ws';
 import { startHeartbeatChecker, stopHeartbeatChecker } from './services/heartbeat.service';
+import { seedDatabase } from './config/seed';
 import './config/mqtt'; // Boot connection
 import './queues/pin-expiration.worker'; // Boot BullMQ Worker
+
+// Run auto-seeding
+seedDatabase();
 
 // Start MQTT message parsing listeners
 initMqttSubscriptions();

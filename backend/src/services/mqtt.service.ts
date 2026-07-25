@@ -4,6 +4,13 @@ import { prisma } from '../config/db';
 import { AccessMethod, AccessResult, LockStatus } from '@prisma/client';
 import { broadcastEvent } from '../ws';
 
+// Map of virtualTransactionId -> pin (to simulate hardware PIN confirmations in browser)
+export const virtualSimulatorTransactions = new Map<string, string>();
+
+export const registerVirtualTransaction = (transactionId: string, pin: string) => {
+  virtualSimulatorTransactions.set(transactionId, pin);
+};
+
 /**
  * Publishes an UNLOCK command payload to a specific lock via MQTT.
  */
@@ -192,6 +199,36 @@ export const initMqttSubscriptions = () => {
               status,
               message: `Lock ${lockId} auto-relocked to ${status}`,
             });
+          }
+        }
+        return;
+      }
+
+      // Match locks/:lockId/validate-pin/reply (browser visual simulator bypass)
+      const replyMatch = topic.match(/^locks\/([^/]+)\/validate-pin\/reply$/);
+      if (replyMatch) {
+        const lockId = replyMatch[1];
+        const { allowed, transactionId, userId } = data;
+
+        const pin = virtualSimulatorTransactions.get(transactionId);
+        if (pin) {
+          virtualSimulatorTransactions.delete(transactionId);
+
+          if (allowed) {
+            console.log(`🤖 MOCK HARDWARE [${lockId}]: Received allowed=true. Simulating physical unlock confirmation...`);
+            setTimeout(() => {
+              const eventTopic = `locks/${lockId}/events`;
+              const eventPayload = JSON.stringify({
+                event: 'PIN_ACCESS_GRANTED',
+                transactionId,
+                pin,
+                userId,
+              });
+              mqttClient.publish(eventTopic, eventPayload, { qos: 1 });
+              console.log(`🤖 MOCK HARDWARE [${lockId}]: Published PIN_ACCESS_GRANTED event.`);
+            }, 1000);
+          } else {
+            console.log(`🤖 MOCK HARDWARE [${lockId}]: Received allowed=false. Lock refused.`);
           }
         }
         return;

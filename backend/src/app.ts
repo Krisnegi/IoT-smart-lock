@@ -6,6 +6,7 @@ import swaggerDocument from './config/swagger.json';
 import authRoutes from './routes/auth.routes';
 import lockRoutes from './routes/lock.routes';
 import permissionRoutes from './routes/permission.routes';
+import simulatorRoutes from './routes/simulator.routes';
 
 const app = express();
 
@@ -13,8 +14,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve static dashboard files
-app.use('/dashboard', express.static(path.join(__dirname, '../dashboard')));
+// Serve static dashboard files from React frontend build
+app.use('/dashboard', express.static(path.join(__dirname, '../../frontend/dist')));
 
 // OpenAPI API documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -23,6 +24,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/api/auth', authRoutes);
 app.use('/api/locks', lockRoutes);
 app.use('/api/permissions', permissionRoutes);
+app.use('/api/simulator', simulatorRoutes);
 
 // Basic Health Check Route
 app.get('/api/health', (req, res) => {
