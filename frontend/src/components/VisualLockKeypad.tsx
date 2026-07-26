@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useWebSocket } from '../context/WebSocketContext';
 import { Keyboard, Shield, Unlock, Lock, AlertCircle } from 'lucide-react';
 
-export const VisualLockKeypad: React.FC = () => {
+interface VisualLockKeypadProps {
+  selectedLockId: string;
+  setSelectedLockId: (id: string) => void;
+}
+
+export const VisualLockKeypad: React.FC<VisualLockKeypadProps> = ({ selectedLockId, setSelectedLockId }) => {
   const { locks } = useWebSocket();
-  const [selectedLockId, setSelectedLockId] = useState<string>('');
   const [pin, setPin] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'granted' | 'denied'>('idle');
   const [shake, setShake] = useState<boolean>(false);
@@ -12,9 +16,7 @@ export const VisualLockKeypad: React.FC = () => {
   // Set default selected lock when locks list updates
   useEffect(() => {
     if (locks.length > 0 && !selectedLockId) {
-      // Find default lock or pick first
-      const defaultLock = locks.find(l => l.id === 'front-gate-01') || locks[0];
-      setSelectedLockId(defaultLock.id);
+      setSelectedLockId(locks[0].id);
     }
   }, [locks, selectedLockId]);
 
@@ -74,10 +76,8 @@ export const VisualLockKeypad: React.FC = () => {
 
     if (activeLock.status === 'UNLOCKED') {
       setStatus('granted');
-      const timer = setTimeout(() => {
-        setStatus('idle');
-      }, 5000); // Reset back to idle after auto-relock window (5s)
-      return () => clearTimeout(timer);
+    } else if (activeLock.status === 'LOCKED') {
+      setStatus('idle');
     }
   }, [activeLock?.status]);
 

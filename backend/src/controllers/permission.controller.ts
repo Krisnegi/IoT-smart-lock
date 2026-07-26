@@ -92,7 +92,9 @@ export const getUserLocks = async (req: Request, res: Response) => {
       },
     });
 
-    const locks = permissions.map((p) => p.lock);
+    const locks = permissions
+      .map((p) => p.lock)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return res.status(200).json({ locks });
   } catch (error) {

@@ -15,4 +15,5 @@ export const config = {
     brokerUrl: process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883',
   },
   jwtSecret: process.env.JWT_SECRET || 'fallback-secret-use-only-in-dev',
+  demoMode: process.env.DEMO_MODE === 'true',
 };

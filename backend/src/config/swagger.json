@@ -25,7 +25,7 @@
         "properties": {
           "id": { "type": "string", "format": "uuid" },
           "email": { "type": "string", "format": "email" },
-          "role": { "type": "string", "enum": ["ADMIN", "MANAGER", "USER"] },
+          "role": { "type": "string", "enum": ["ADMIN", "USER"] },
           "createdAt": { "type": "string", "format": "date-time" }
         }
       },
@@ -73,7 +73,7 @@
                 "properties": {
                   "email": { "type": "string", "format": "email" },
                   "password": { "type": "string", "minLength": 6 },
-                  "role": { "type": "string", "enum": ["ADMIN", "MANAGER", "USER"], "default": "USER" }
+                  "role": { "type": "string", "enum": ["ADMIN", "USER"], "default": "USER" }
                 },
                 "required": ["email", "password"]
               }

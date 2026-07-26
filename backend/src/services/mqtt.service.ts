@@ -3,6 +3,7 @@ import { transactionService } from './transaction.service';
 import { prisma } from '../config/db';
 import { AccessMethod, AccessResult, LockStatus } from '@prisma/client';
 import { broadcastEvent } from '../ws';
+import bcrypt from 'bcrypt';
 
 // Map of virtualTransactionId -> pin (to simulate hardware PIN confirmations in browser)
 export const virtualSimulatorTransactions = new Map<string, string>();
@@ -12,17 +13,21 @@ export const registerVirtualTransaction = (transactionId: string, pin: string) =
 };
 
 /**
- * Publishes an UNLOCK command payload to a specific lock via MQTT.
+ * Publishes a LOCK/UNLOCK command payload to a specific lock via MQTT.
  */
-export const publishUnlockCommand = (lockId: string, transactionId: string) => {
+export const publishLockCommand = (lockId: string, command: 'LOCK' | 'UNLOCK', transactionId: string) => {
   const topic = `locks/${lockId}/commands`;
   const payload = JSON.stringify({
-    command: 'UNLOCK',
+    command,
     transactionId,
   });
 
   console.log(`📤 MQTT Publishing command to topic [${topic}]: ${payload}`);
   mqttClient.publish(topic, payload, { qos: 1 });
+};
+
+export const publishUnlockCommand = (lockId: string, transactionId: string) => {
+  publishLockCommand(lockId, 'UNLOCK', transactionId);
 };
 
 /**
@@ -68,11 +73,20 @@ export const initMqttSubscriptions = () => {
 
         const replyTopic = `locks/${lockId}/validate-pin/reply`;
 
-        // Search for pin record
-        const pinRecord = await prisma.temporaryPin.findFirst({
-          where: { lockId, pin },
+        // Search for all pin records for this lock and compare hashes
+        const pinRecords = await prisma.temporaryPin.findMany({
+          where: { lockId },
           orderBy: { createdAt: 'desc' },
         });
+
+        let pinRecord = null;
+        for (const record of pinRecords) {
+          const match = await bcrypt.compare(pin, record.pin);
+          if (match) {
+            pinRecord = record;
+            break;
+          }
+        }
 
         // 1. PIN doesn't exist
         if (!pinRecord) {

@@ -7,7 +7,7 @@ export const LoginScreen: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [role, setRole] = useState<'ADMIN' | 'MANAGER' | 'USER'>('USER');
+  const [role, setRole] = useState<'ADMIN' | 'USER'>('USER');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -140,7 +140,6 @@ export const LoginScreen: React.FC = () => {
                   className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-indigo-500/50 transition"
                 >
                   <option value="USER">USER (Access Only)</option>
-                  <option value="MANAGER">MANAGER (Assign PINs & view logs)</option>
                   <option value="ADMIN">ADMIN (CRUD locks & permissions)</option>
                 </select>
               </div>

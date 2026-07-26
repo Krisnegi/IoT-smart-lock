@@ -98,3 +98,22 @@ export const login = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const getAllUsers = async (req: Request, res: Response) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        role: true,
+      },
+      orderBy: {
+        email: 'asc',
+      },
+    });
+    return res.status(200).json({ users });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

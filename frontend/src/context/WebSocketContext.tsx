@@ -133,6 +133,8 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           targetLock.isOnline = true;
         } else if (type === 'LOCK_UNLOCKED') {
           targetLock.status = 'UNLOCKED';
+        } else if (type === 'LOCK_LOCKED') {
+          targetLock.status = 'LOCKED';
         } else if (type === 'LOCK_STATUS_CHANGED') {
           targetLock.status = payload.status === 'UNLOCKED' ? 'UNLOCKED' : 'LOCKED';
         }

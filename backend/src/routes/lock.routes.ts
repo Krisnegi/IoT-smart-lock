@@ -12,15 +12,15 @@ router.use(authenticate);
 router.post('/:id/unlock', unlockLock);
 
 // Temporary Access PIN creation
-router.post('/:id/temp-pin', authorize([Role.ADMIN, Role.MANAGER]), createTempPin);
+router.post('/:id/temp-pin', authorize([Role.ADMIN]), createTempPin);
 
 // Audit Logs Query
-router.get('/:id/logs', authorize([Role.ADMIN, Role.MANAGER]), getLockLogs);
+router.get('/:id/logs', authorize([Role.ADMIN]), getLockLogs);
 
 // CRUD Routes
 router.post('/', authorize([Role.ADMIN]), createLock);
-router.get('/', authorize([Role.ADMIN, Role.MANAGER]), getAllLocks);
-router.get('/:id', authorize([Role.ADMIN, Role.MANAGER]), getLockById);
+router.get('/', authorize([Role.ADMIN]), getAllLocks);
+router.get('/:id', authorize([Role.ADMIN]), getLockById);
 router.put('/:id', authorize([Role.ADMIN]), updateLock);
 router.delete('/:id', authorize([Role.ADMIN]), deleteLock);
 

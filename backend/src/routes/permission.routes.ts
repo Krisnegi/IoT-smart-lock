@@ -11,8 +11,8 @@ router.use(authenticate);
 // View currently permitted locks for the logged-in user
 router.get('/my-locks', getUserLocks);
 
-// Admin & Manager actions
-router.post('/grant', authorize([Role.ADMIN, Role.MANAGER]), grantPermission);
-router.post('/revoke', authorize([Role.ADMIN, Role.MANAGER]), revokePermission);
+// Admin only actions
+router.post('/grant', authorize([Role.ADMIN]), grantPermission);
+router.post('/revoke', authorize([Role.ADMIN]), revokePermission);
 
 export default router;

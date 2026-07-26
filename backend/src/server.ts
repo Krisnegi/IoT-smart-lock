@@ -3,6 +3,7 @@ import { config } from './config';
 import { initMqttSubscriptions } from './services/mqtt.service';
 import { initWebSocketServer } from './ws';
 import { startHeartbeatChecker, stopHeartbeatChecker } from './services/heartbeat.service';
+import { startDemoSimulators } from './services/demo-simulator.service';
 import { seedDatabase } from './config/seed';
 import './config/mqtt'; // Boot connection
 import './queues/pin-expiration.worker'; // Boot BullMQ Worker
@@ -25,6 +26,7 @@ initWebSocketServer(server);
 
 // Start background device status heartbeat monitors
 startHeartbeatChecker();
+startDemoSimulators();
 
 // Handle graceful shutdown
 const gracefulShutdown = () => {

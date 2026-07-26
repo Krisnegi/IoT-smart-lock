@@ -2,9 +2,11 @@ import { Request, Response } from 'express';
 import { prisma } from '../config/db';
 import { LockStatus, Role, AccessMethod, AccessResult } from '@prisma/client';
 import { transactionService } from '../services/transaction.service';
-import { publishUnlockCommand } from '../services/mqtt.service';
+import { publishUnlockCommand, publishLockCommand } from '../services/mqtt.service';
+import bcrypt from 'bcrypt';
 import { schedulePinExpiration } from '../queues/pin-expiration.queue';
 import { broadcastEvent } from '../ws';
+import { registerDynamicDemoSimulator } from '../services/demo-simulator.service';
 
 export const createLock = async (req: Request, res: Response) => {
   try {
@@ -14,14 +16,19 @@ export const createLock = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Lock id and name are required' });
     }
 
-    const existingLock = await prisma.lock.findUnique({ where: { id } });
+    const lockId = id.trim().toLowerCase();
+
+    const existingLock = await prisma.lock.findUnique({ where: { id: lockId } });
     if (existingLock) {
-      return res.status(409).json({ error: `Lock with id '${id}' already registered` });
+      return res.status(409).json({ error: `Lock with id '${lockId}' already registered` });
     }
 
     const lock = await prisma.lock.create({
-      data: { id, name },
+      data: { id: lockId, name },
     });
+
+    // Register simulator client dynamically if in DEMO_MODE
+    registerDynamicDemoSimulator(lockId);
 
     return res.status(201).json({
       message: 'Lock registered successfully',
@@ -35,7 +42,9 @@ export const createLock = async (req: Request, res: Response) => {
 
 export const getAllLocks = async (req: Request, res: Response) => {
   try {
-    const locks = await prisma.lock.findMany();
+    const locks = await prisma.lock.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
     return res.status(200).json({ locks });
   } catch (error) {
     console.error('Get all locks error:', error);
@@ -46,7 +55,8 @@ export const getAllLocks = async (req: Request, res: Response) => {
 export const getLockById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const lock = await prisma.lock.findUnique({ where: { id } });
+    const lockId = id.trim().toLowerCase();
+    const lock = await prisma.lock.findUnique({ where: { id: lockId } });
 
     if (!lock) {
       return res.status(404).json({ error: 'Lock not found' });
@@ -62,9 +72,10 @@ export const getLockById = async (req: Request, res: Response) => {
 export const updateLock = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const lockId = id.trim().toLowerCase();
     const { name, status } = req.body;
 
-    const existingLock = await prisma.lock.findUnique({ where: { id } });
+    const existingLock = await prisma.lock.findUnique({ where: { id: lockId } });
     if (!existingLock) {
       return res.status(404).json({ error: 'Lock not found' });
     }
@@ -75,7 +86,7 @@ export const updateLock = async (req: Request, res: Response) => {
     }
 
     const lock = await prisma.lock.update({
-      where: { id },
+      where: { id: lockId },
       data: {
         name: name !== undefined ? name : undefined,
         status: status !== undefined ? (status as LockStatus) : undefined,
@@ -95,13 +106,14 @@ export const updateLock = async (req: Request, res: Response) => {
 export const deleteLock = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const lockId = id.trim().toLowerCase();
 
-    const existingLock = await prisma.lock.findUnique({ where: { id } });
+    const existingLock = await prisma.lock.findUnique({ where: { id: lockId } });
     if (!existingLock) {
       return res.status(404).json({ error: 'Lock not found' });
     }
 
-    await prisma.lock.delete({ where: { id } });
+    await prisma.lock.delete({ where: { id: lockId } });
 
     return res.status(200).json({ message: `Lock '${id}' deleted successfully` });
   } catch (error) {
@@ -111,7 +123,7 @@ export const deleteLock = async (req: Request, res: Response) => {
 };
 
 export const unlockLock = async (req: Request, res: Response) => {
-  const { id: lockId } = req.params;
+  const lockId = req.params.id.trim().toLowerCase();
   const user = req.user;
 
   if (!user) {
@@ -156,20 +168,23 @@ export const unlockLock = async (req: Request, res: Response) => {
       }
     }
 
+    const targetStatus = lock.status === LockStatus.UNLOCKED ? LockStatus.LOCKED : LockStatus.UNLOCKED;
+    const command = targetStatus === LockStatus.UNLOCKED ? 'UNLOCK' : 'LOCK';
+
     // 3. Create transient transaction
     const { transactionId, promise } = transactionService.createTransaction();
 
     // 4. Publish MQTT command
-    publishUnlockCommand(lockId, transactionId);
+    publishLockCommand(lockId, command, transactionId);
 
     // 5. Wait for Lock Simulator ACK
     try {
       await promise;
 
-      // 6. On success, update lock status to UNLOCKED
+      // 6. On success, update lock status to targetStatus
       const updatedLock = await prisma.lock.update({
         where: { id: lockId },
-        data: { status: LockStatus.UNLOCKED },
+        data: { status: targetStatus },
       });
 
       // Log successful access attempt
@@ -182,15 +197,20 @@ export const unlockLock = async (req: Request, res: Response) => {
         },
       });
 
-      broadcastEvent('LOCK_UNLOCKED', {
+      const eventType = targetStatus === LockStatus.UNLOCKED ? 'LOCK_UNLOCKED' : 'LOCK_LOCKED';
+      const eventMessage = targetStatus === LockStatus.UNLOCKED
+        ? `Lock ${lockId} unlocked remotely by user ${user.email}`
+        : `Lock ${lockId} locked remotely by user ${user.email}`;
+
+      broadcastEvent(eventType, {
         lockId,
         method: 'API',
         user: { id: user.id, email: user.email },
-        message: `Lock ${lockId} unlocked remotely by user ${user.email}`,
+        message: eventMessage,
       });
 
       return res.status(200).json({
-        message: 'Unlock command executed successfully',
+        message: `${command === 'UNLOCK' ? 'Unlock' : 'Lock'} command executed successfully`,
         lock: updatedLock,
       });
     } catch (cmdError: any) {
@@ -230,11 +250,17 @@ export const unlockLock = async (req: Request, res: Response) => {
 };
 
 export const createTempPin = async (req: Request, res: Response) => {
-  const { id: lockId } = req.params;
+  const lockId = req.params.id.trim().toLowerCase();
   const { userId, pin, durationSeconds } = req.body;
 
   if (!userId || !pin || !durationSeconds) {
     return res.status(400).json({ error: 'userId, pin, and durationSeconds are required' });
+  }
+
+  // Verify PIN is exactly 6 numeric digits
+  const pinRegex = /^\d{6}$/;
+  if (!pinRegex.test(pin)) {
+    return res.status(400).json({ error: 'PIN must be exactly 6 numeric digits' });
   }
 
   try {
@@ -250,15 +276,34 @@ export const createTempPin = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check if an unexpired active temporary PIN already exists for this combination
+    const activePin = await prisma.temporaryPin.findFirst({
+      where: {
+        lockId,
+        userId,
+        isActive: true,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (activePin) {
+      return res.status(400).json({ error: 'An active temporary PIN already exists for this user on this lock' });
+    }
+
     // 3. Calculate expiration date
     const expiresAt = new Date(Date.now() + durationSeconds * 1000);
+
+    // Hash the PIN using bcrypt before storing in database
+    const hashedPin = await bcrypt.hash(pin, 10);
 
     // 4. Create TemporaryPin in database
     const tempPin = await prisma.temporaryPin.create({
       data: {
         lockId,
         userId,
-        pin,
+        pin: hashedPin,
         expiresAt,
       },
     });
@@ -272,7 +317,7 @@ export const createTempPin = async (req: Request, res: Response) => {
         id: tempPin.id,
         lockId: tempPin.lockId,
         userId: tempPin.userId,
-        pin: tempPin.pin,
+        pin: pin, // Return plain text pin once in response for Admin visibility
         expiresAt: tempPin.expiresAt,
         isActive: tempPin.isActive,
       },
@@ -284,7 +329,7 @@ export const createTempPin = async (req: Request, res: Response) => {
 };
 
 export const getLockLogs = async (req: Request, res: Response) => {
-  const { id: lockId } = req.params;
+  const lockId = req.params.id.trim().toLowerCase();
 
   try {
     // 1. Verify lock exists
@@ -308,7 +353,40 @@ export const getLockLogs = async (req: Request, res: Response) => {
       },
     });
 
-    return res.status(200).json({ logs });
+    // 3. Query all user permissions for this lock
+    const permissions = await prisma.userLockPermission.findMany({
+      where: { lockId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            tempPins: {
+              where: { lockId },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    const authorizedUsers = permissions.map(p => {
+      const latestPin = p.user.tempPins[0] || null;
+      return {
+        userId: p.user.id,
+        email: p.user.email,
+        role: p.user.role,
+        latestPin: latestPin ? {
+          id: latestPin.id,
+          expiresAt: latestPin.expiresAt,
+          isActive: latestPin.isActive,
+        } : null,
+      };
+    });
+
+    return res.status(200).json({ logs, authorizedUsers });
   } catch (error) {
     console.error('Get lock logs error:', error);
     return res.status(500).json({ error: 'Internal server error' });
