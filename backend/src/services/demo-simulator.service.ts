@@ -37,6 +37,13 @@ export const registerDynamicDemoSimulator = (lockId: string) => {
       }
     });
 
+    // Subscribe to events topic (to detect PIN unlocks)
+    client.subscribe(`locks/${lockId}/events`, (err) => {
+      if (err) {
+        console.error(`❌ Virtual Simulator [${lockId}] events subscription failed:`, err);
+      }
+    });
+
     // Send initial heartbeat
     sendHeartbeat();
 
@@ -99,6 +106,20 @@ export const registerDynamicDemoSimulator = (lockId: string) => {
               console.log(`🤖 Virtual Simulator [${lockId}] status changed to LOCKED.`);
             }, 1000);
           }
+        }
+      } else if (topic === `locks/${lockId}/events`) {
+        const { event } = data;
+        if (event === 'PIN_ACCESS_GRANTED') {
+          console.log(`🤖 Virtual Simulator [${lockId}] detected PIN unlock event.`);
+          currentStatus = 'UNLOCKED';
+
+          // Auto-relock after 30 seconds (30000ms)
+          if (relockTimeout) clearTimeout(relockTimeout);
+          relockTimeout = setTimeout(() => {
+            currentStatus = 'LOCKED';
+            sendHeartbeat();
+            console.log(`🤖 Virtual Simulator [${lockId}] auto-relocked to LOCKED.`);
+          }, 30000);
         }
       }
     } catch (err) {

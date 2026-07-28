@@ -166,6 +166,12 @@ export const initMqttSubscriptions = () => {
             },
           });
 
+          // Update lock status in database
+          await prisma.lock.update({
+            where: { id: lockId },
+            data: { status: 'UNLOCKED' },
+          });
+
           broadcastEvent('LOCK_UNLOCKED', {
             lockId,
             method: 'PIN',

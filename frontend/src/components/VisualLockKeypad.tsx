@@ -8,10 +8,11 @@ interface VisualLockKeypadProps {
 }
 
 export const VisualLockKeypad: React.FC<VisualLockKeypadProps> = ({ selectedLockId, setSelectedLockId }) => {
-  const { locks } = useWebSocket();
+  const { locks, logs } = useWebSocket();
   const [pin, setPin] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'granted' | 'denied'>('idle');
   const [shake, setShake] = useState<boolean>(false);
+  const [submitTime, setSubmitTime] = useState<number>(0);
 
   // Set default selected lock when locks list updates
   useEffect(() => {
@@ -36,9 +37,20 @@ export const VisualLockKeypad: React.FC<VisualLockKeypadProps> = ({ selectedLock
   };
 
   const handleSubmit = async () => {
-    if (!selectedLockId || pin.length === 0) return;
+    if (!selectedLockId || pin.length !== 6) return;
 
     setStatus('submitting');
+    setSubmitTime(Date.now());
+
+    // Safety fallback timeout to reset keypad if response is lost/delayed
+    const timeoutId = setTimeout(() => {
+      setStatus(current => {
+        if (current === 'submitting') {
+          triggerDenial();
+        }
+        return current;
+      });
+    }, 3000);
 
     try {
       const res = await fetch('/api/simulator/keypad', {
@@ -48,14 +60,13 @@ export const VisualLockKeypad: React.FC<VisualLockKeypadProps> = ({ selectedLock
       });
 
       if (res.ok) {
-        // Validation query published successfully.
-        // We now wait for the MQTT validating loop and WebSocket response!
-        // For visual feedback, we clear PIN.
         setPin('');
       } else {
+        clearTimeout(timeoutId);
         triggerDenial();
       }
     } catch (err) {
+      clearTimeout(timeoutId);
       triggerDenial();
     }
   };
@@ -69,6 +80,19 @@ export const VisualLockKeypad: React.FC<VisualLockKeypadProps> = ({ selectedLock
       setStatus('idle');
     }, 1500);
   };
+
+  // Watch WebSocket logs to instantly trigger denial on failure
+  useEffect(() => {
+    if (status === 'submitting' && logs.length > 0) {
+      const latest = logs[0];
+      if (latest.type === 'ACCESS_DENIED' && latest.payload.lockId === selectedLockId) {
+        const eventTime = new Date(latest.timestamp).getTime();
+        if (eventTime >= submitTime) {
+          triggerDenial();
+        }
+      }
+    }
+  }, [logs, status, selectedLockId, submitTime]);
 
   // Watch locks state to auto-update UI feedback if we receive a lock status change
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { VisualLockKeypad } from './VisualLockKeypad';
@@ -29,6 +29,27 @@ export const Dashboard: React.FC = () => {
   const [authorizedUsers, setAuthorizedUsers] = useState<any[]>([]);
   const [modalTab, setModalTab] = useState<'pins' | 'logs'>('pins');
   const [selectedKeypadLockId, setSelectedKeypadLockId] = useState<string>('');
+
+  const lastSeenLogTimeRef = useRef<string | null>(null);
+
+  // Listen to live events and show a temporary toast alert on ACCESS_DENIED (unauthorized/expired PIN entry)
+  useEffect(() => {
+    if (logs.length > 0) {
+      const latestLog = logs[0];
+      if (latestLog.type === 'ACCESS_DENIED') {
+        if (lastSeenLogTimeRef.current !== latestLog.timestamp) {
+          lastSeenLogTimeRef.current = latestLog.timestamp;
+          
+          // Check if event is fresh (less than 5 seconds old) to prevent historical toast display on mount
+          const eventTime = new Date(latestLog.timestamp).getTime();
+          const now = new Date().getTime();
+          if (now - eventTime < 5000) {
+            displayMessage('', latestLog.payload.message || 'Access denied: Invalid PIN typed');
+          }
+        }
+      }
+    }
+  }, [logs]);
 
   // Fetch users list when token or role changes
   useEffect(() => {

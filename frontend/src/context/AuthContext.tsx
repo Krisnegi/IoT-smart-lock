@@ -22,16 +22,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Load token on mount
-  useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
+  };
 
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+  // Load token on mount & verify session validity
+  useEffect(() => {
+    const checkSession = async () => {
+      const savedToken = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
+
+      if (savedToken && savedUser) {
+        try {
+          const res = await fetch('/api/auth/me', {
+            headers: { Authorization: `Bearer ${savedToken}` }
+          });
+          if (res.ok) {
+            setToken(savedToken);
+            setUser(JSON.parse(savedUser));
+          } else {
+            logout();
+          }
+        } catch (err) {
+          // Fallback to local session if backend is temporarily unreachable
+          setToken(savedToken);
+          setUser(JSON.parse(savedUser));
+        }
+      }
+      setIsLoading(false);
+    };
+
+    checkSession();
+  }, []);
+
+  // Global fetch interceptor to catch any 401 response and auto-logout
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args);
+      if (response.status === 401 && localStorage.getItem('token')) {
+        logout();
+      }
+      return response;
+    };
+    return () => {
+      window.fetch = originalFetch;
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -55,13 +94,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const demoLogin = async () => {
     // Uses pre-seeded credentials
     await login('admin@example.com', 'adminpassword123');
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
   };
 
   return (
