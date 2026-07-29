@@ -106,15 +106,15 @@ export const VisualLockKeypad: React.FC<VisualLockKeypadProps> = ({ selectedLock
   }, [activeLock?.status]);
 
   return (
-    <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-6 backdrop-blur-xl shadow-xl flex flex-col items-center w-full max-w-sm mx-auto">
-      <div className="flex items-center gap-2 mb-6 self-start">
-        <Keyboard className="w-5 h-5 text-indigo-400" />
-        <h3 className="font-semibold text-slate-200 font-mono">Visual Lock Hardware</h3>
+    <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-5 backdrop-blur-xl shadow-xl flex flex-col items-center w-full max-w-sm mx-auto h-full min-h-0 overflow-y-auto">
+      <div className="flex items-center gap-2 mb-4 self-start flex-shrink-0">
+        <Keyboard className="w-4 h-4 text-indigo-400" />
+        <h3 className="text-sm font-semibold text-slate-200 font-mono">Visual Lock Hardware</h3>
       </div>
 
       {/* Lock Selector */}
-      <div className="w-full mb-6">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 font-mono">
+      <div className="w-full mb-4 flex-shrink-0">
+        <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
           Select Lock Hardware
         </label>
         <select
@@ -124,7 +124,7 @@ export const VisualLockKeypad: React.FC<VisualLockKeypadProps> = ({ selectedLock
             setStatus('idle');
             setPin('');
           }}
-          className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-indigo-500/50 transition"
+          className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500/50 transition font-mono"
         >
           {locks.length === 0 ? (
             <option value="">No locks available</option>
@@ -139,80 +139,80 @@ export const VisualLockKeypad: React.FC<VisualLockKeypadProps> = ({ selectedLock
       </div>
 
       {/* Mock LED status dial */}
-      <div className="relative w-36 h-36 rounded-full flex items-center justify-center border-4 border-slate-950 bg-slate-900/60 shadow-inner mb-6">
+      <div className="relative w-28 h-28 rounded-full flex items-center justify-center border-4 border-slate-950 bg-slate-900/60 shadow-inner mb-4 flex-shrink-0">
         {/* Status ring ring */}
         <div className={`absolute inset-0 rounded-full border-4 transition-all duration-500 ${
           !activeLock?.isOnline 
-            ? 'border-slate-700 shadow-[0_0_15px_rgba(100,116,139,0.3)]'
+            ? 'border-slate-700 shadow-[0_0_12px_rgba(100,116,139,0.25)]'
             : activeLock.status === 'UNLOCKED' || status === 'granted'
-              ? 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)]'
+              ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]'
               : status === 'denied'
-                ? 'border-rose-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]'
-                : 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]'
+                ? 'border-rose-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+                : 'border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.25)]'
         }`}></div>
 
         {/* Lock Icon */}
-        <div className="flex flex-col items-center gap-1 z-10">
+        <div className="flex flex-col items-center gap-0.5 z-10">
           {!activeLock?.isOnline ? (
             <>
-              <Shield className="w-8 h-8 text-slate-500" />
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Offline</span>
+              <Shield className="w-6 h-6 text-slate-500" />
+              <span className="text-[9px] uppercase font-bold tracking-wider text-slate-500 font-mono">Offline</span>
             </>
           ) : activeLock.status === 'UNLOCKED' || status === 'granted' ? (
             <>
-              <Unlock className="w-8 h-8 text-emerald-400 animate-bounce" />
-              <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">Open</span>
+              <Unlock className="w-6 h-6 text-emerald-400 animate-bounce" />
+              <span className="text-[9px] uppercase font-bold tracking-wider text-emerald-400 font-mono">Open</span>
             </>
           ) : status === 'denied' ? (
             <>
-              <AlertCircle className="w-8 h-8 text-rose-400" />
-              <span className="text-[10px] uppercase font-bold tracking-wider text-rose-400">Refused</span>
+              <AlertCircle className="w-6 h-6 text-rose-400" />
+              <span className="text-[9px] uppercase font-bold tracking-wider text-rose-400 font-mono">Refused</span>
             </>
           ) : (
             <>
-              <Lock className="w-8 h-8 text-indigo-400" />
-              <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-400">Locked</span>
+              <Lock className="w-6 h-6 text-indigo-400" />
+              <span className="text-[9px] uppercase font-bold tracking-wider text-indigo-400 font-mono">Locked</span>
             </>
           )}
         </div>
       </div>
 
       {/* Screen Display */}
-      <div className={`w-full bg-slate-950 border border-white/10 rounded-xl py-3 px-4 flex justify-between items-center mb-6 h-12 transition-all font-mono ${
+      <div className={`w-full bg-slate-950 border border-white/10 rounded-xl py-2 px-3 flex justify-between items-center mb-4 h-10 transition-all font-mono flex-shrink-0 ${
         shake ? 'animate-pulse border-rose-500/50 bg-rose-950/20' : ''
       }`}>
-        <span className="text-xs text-slate-500 tracking-wider">PIN:</span>
-        <span className="text-lg font-bold tracking-[0.25em] text-slate-200">
+        <span className="text-[10px] text-slate-500 tracking-wider">PIN:</span>
+        <span className="text-base font-bold tracking-[0.25em] text-slate-200">
           {pin ? '*'.repeat(pin.length) : '------'}
         </span>
       </div>
 
       {/* Keypad Grid */}
-      <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
+      <div className="grid grid-cols-3 gap-2 w-full max-w-[240px] flex-shrink-0 pb-1">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(num => (
           <button
             key={num}
             onClick={() => handleKeyPress(num)}
-            className="h-12 rounded-xl bg-slate-950/50 border border-white/5 text-lg font-semibold text-slate-300 hover:bg-white/5 active:scale-95 transition flex items-center justify-center font-mono"
+            className="h-10 rounded-xl bg-slate-950/50 border border-white/5 text-base font-semibold text-slate-300 hover:bg-white/5 active:scale-95 transition flex items-center justify-center font-mono"
           >
             {num}
           </button>
         ))}
         <button
           onClick={handleClear}
-          className="h-12 rounded-xl bg-rose-950/20 border border-rose-500/20 text-xs font-bold text-rose-400 hover:bg-rose-950/40 active:scale-95 transition flex items-center justify-center font-mono"
+          className="h-10 rounded-xl bg-rose-950/20 border border-rose-500/20 text-[10px] font-bold text-rose-400 hover:bg-rose-950/40 active:scale-95 transition flex items-center justify-center font-mono"
         >
           CLR
         </button>
         <button
           onClick={() => handleKeyPress('0')}
-          className="h-12 rounded-xl bg-slate-950/50 border border-white/5 text-lg font-semibold text-slate-300 hover:bg-white/5 active:scale-95 transition flex items-center justify-center font-mono"
+          className="h-10 rounded-xl bg-slate-950/50 border border-white/5 text-base font-semibold text-slate-300 hover:bg-white/5 active:scale-95 transition flex items-center justify-center font-mono"
         >
           0
         </button>
         <button
           onClick={handleSubmit}
-          className="h-12 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-xs font-bold text-indigo-400 hover:bg-indigo-500/30 active:scale-95 transition flex items-center justify-center font-mono"
+          className="h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-[10px] font-bold text-indigo-400 hover:bg-indigo-500/30 active:scale-95 transition flex items-center justify-center font-mono"
         >
           ENT
         </button>

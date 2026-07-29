@@ -5,7 +5,6 @@ import { VisualLockKeypad } from './VisualLockKeypad';
 import { 
   Shield, 
   LogOut, 
-  Activity, 
   Radio, 
   PlusCircle, 
   UserPlus, 
@@ -18,7 +17,7 @@ import {
 
 export const Dashboard: React.FC = () => {
   const { user, token, logout } = useAuth();
-  const { logs, stats, locks, wsConnected, refetchLocks } = useWebSocket();
+  const { logs, locks, wsConnected, refetchLocks } = useWebSocket();
 
   // Navigation / Modal States
   const [activeTab, setActiveTab] = useState<'monitor' | 'admin'>('monitor');
@@ -27,6 +26,7 @@ export const Dashboard: React.FC = () => {
   const [logsLoading, setLogsLoading] = useState<boolean>(false);
   const [users, setUsers] = useState<any[]>([]);
   const [authorizedUsers, setAuthorizedUsers] = useState<any[]>([]);
+  const [authorizedUsersForPin, setAuthorizedUsersForPin] = useState<any[]>([]);
   const [modalTab, setModalTab] = useState<'pins' | 'logs'>('pins');
   const [selectedKeypadLockId, setSelectedKeypadLockId] = useState<string>('');
 
@@ -74,7 +74,6 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     if (users.length > 0) {
       setPermUserId(prev => prev || users[0].id);
-      setTempPinUserId(prev => prev || users[0].id);
     }
   }, [users]);
 
@@ -87,6 +86,35 @@ export const Dashboard: React.FC = () => {
   const [tempPinLockId, setTempPinLockId] = useState('');
   const [tempPinVal, setTempPinVal] = useState('');
   const [tempPinDuration, setTempPinDuration] = useState('30'); // default 30s
+
+  // Load authorized users dynamically when the temporary PIN target lock is changed
+  useEffect(() => {
+    if (!tempPinLockId || !token) {
+      setAuthorizedUsersForPin([]);
+      setTempPinUserId('');
+      return;
+    }
+    const fetchAuthorizedForPin = async () => {
+      try {
+        const res = await fetch(`/api/locks/${tempPinLockId}/logs`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const authUsers = data.authorizedUsers || [];
+          setAuthorizedUsersForPin(authUsers);
+          if (authUsers.length > 0) {
+            setTempPinUserId(authUsers[0].userId);
+          } else {
+            setTempPinUserId('');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch authorized users for PIN:', err);
+      }
+    };
+    fetchAuthorizedForPin();
+  }, [tempPinLockId, token]);
 
   // Status banners
   const [formSuccess, setFormSuccess] = useState<string>('');
@@ -186,6 +214,18 @@ export const Dashboard: React.FC = () => {
   // 4. Temporary PIN Schedule (Admin/Manager)
   const handleCreateTempPin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tempPinLockId) {
+      displayMessage('', 'Please select a target lock');
+      return;
+    }
+    if (!tempPinUserId) {
+      displayMessage('', 'Please select an authorized user');
+      return;
+    }
+    if (!tempPinVal || tempPinVal.length !== 6) {
+      displayMessage('', 'Please enter a valid 6-digit PIN');
+      return;
+    }
     try {
       const res = await fetch(`/api/locks/${tempPinLockId}/temp-pin`, {
         method: 'POST',
@@ -329,41 +369,17 @@ export const Dashboard: React.FC = () => {
       </header>
 
       {/* Main Layout Grid */}
-      <main className="flex-grow p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl w-full mx-auto">
+      <main className="flex-grow p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl w-full mx-auto lg:h-[calc(100vh-120px)] lg:overflow-hidden min-h-0">
         
-        {/* Left column: Stats card & Lock registry list */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Stats Widget */}
-          <div className="bg-slate-900/20 border border-white/5 rounded-2xl p-5 backdrop-blur-xl">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-4 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-indigo-400" />
-              Live Telemetry Counters
-            </h4>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-slate-950/60 border border-white/5 rounded-xl p-3 text-center">
-                <span className="text-xs font-mono text-slate-500 block mb-1">SUCCESS</span>
-                <span className="text-xl font-bold font-mono text-emerald-400">{stats.success}</span>
-              </div>
-              <div className="bg-slate-950/60 border border-white/5 rounded-xl p-3 text-center">
-                <span className="text-xs font-mono text-slate-500 block mb-1">DENIED</span>
-                <span className="text-xl font-bold font-mono text-rose-400">{stats.denied}</span>
-              </div>
-              <div className="bg-slate-950/60 border border-white/5 rounded-xl p-3 text-center">
-                <span className="text-xs font-mono text-slate-500 block mb-1">FAIL</span>
-                <span className="text-xl font-bold font-mono text-amber-500">{stats.failed}</span>
-              </div>
-            </div>
-          </div>
-
-
-
+        {/* Left column: Lock registry list */}
+        <div className="lg:col-span-1 h-full min-h-0 flex flex-col">
           {/* Registered Locks Panel */}
-          <div className="bg-slate-900/20 border border-white/5 rounded-2xl p-5 backdrop-blur-xl flex flex-col min-h-[300px]">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-4 flex items-center gap-2">
+          <div className="bg-slate-900/20 border border-white/5 rounded-2xl p-5 backdrop-blur-xl flex flex-col h-full min-h-0">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-4 flex items-center gap-2 flex-shrink-0">
               <Radio className="w-4 h-4 text-indigo-400" />
               Registered Devices
             </h4>
-            <div className="space-y-3 overflow-y-auto max-h-[400px]">
+            <div className="space-y-3 overflow-y-auto flex-grow pr-1 min-h-0">
               {locks.length === 0 ? (
                 <div className="text-center text-xs text-slate-500 py-8 font-mono">
                   No registered devices.
@@ -421,10 +437,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Center column: Dashboard Tabs (Monitor/Admin) & visual logs feed / admin forms */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 h-full min-h-0 flex flex-col space-y-6">
           {/* Navigation Tab Bar */}
           {user?.role !== 'USER' && (
-            <div className="bg-slate-950/40 p-1 border border-white/5 rounded-xl flex">
+            <div className="bg-slate-950/40 p-1 border border-white/5 rounded-xl flex flex-shrink-0">
               <button
                 onClick={() => setActiveTab('monitor')}
                 className={`flex-grow py-2 rounded-lg text-xs font-mono font-bold tracking-wider uppercase transition ${
@@ -447,14 +463,14 @@ export const Dashboard: React.FC = () => {
 
           {/* ACTIVE VIEW TAB: SYSTEM MONITOR */}
           {activeTab === 'monitor' && (
-            <div className="space-y-6">
+            <div className="flex-grow min-h-0 flex flex-col">
               {/* Live WebSocket Event Console */}
-              <div className="bg-slate-950/80 border border-white/5 rounded-2xl p-5 backdrop-blur-xl flex flex-col">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-3.5 flex items-center gap-2">
+              <div className="bg-slate-950/80 border border-white/5 rounded-2xl p-5 backdrop-blur-xl flex flex-col h-full min-h-0">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-3.5 flex items-center gap-2 flex-shrink-0">
                   <ListOrdered className="w-4 h-4 text-indigo-400" />
                   Live Event Console (WebSockets stream)
                 </h4>
-                <div className="h-[430px] rounded-xl bg-black/60 border border-white/5 p-4 overflow-y-auto font-mono text-xs text-slate-300 space-y-2.5">
+                <div className="flex-grow rounded-xl bg-black/60 border border-white/5 p-4 overflow-y-auto font-mono text-xs text-slate-300 space-y-2.5 min-h-0">
                   {logs.length === 0 ? (
                     <div className="text-slate-500 text-center py-20 uppercase tracking-widest text-[10px]">
                       Waiting for incoming MQTT/WebSocket signals...
@@ -489,7 +505,7 @@ export const Dashboard: React.FC = () => {
 
           {/* ACTIVE VIEW TAB: ADMIN CONTROLS */}
           {activeTab === 'admin' && user?.role === 'ADMIN' && (
-            <div className="space-y-6">
+            <div className="space-y-6 overflow-y-auto flex-grow pr-1 min-h-0">
               
               {/* Row 1: Register Lock (ADMIN only) & Grant Permissions */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -586,22 +602,6 @@ export const Dashboard: React.FC = () => {
                 <form onSubmit={handleCreateTempPin} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-mono">Select User</label>
-                      <select
-                        required
-                        value={tempPinUserId}
-                        onChange={(e) => setTempPinUserId(e.target.value)}
-                        className="w-full bg-slate-950/80 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500/50 transition font-mono"
-                      >
-                        <option value="">Select User</option>
-                        {users.map(u => (
-                          <option key={u.id} value={u.id}>
-                            {u.email} ({u.role})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
                       <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-mono">Target Lock</label>
                       <select
                         required
@@ -613,6 +613,31 @@ export const Dashboard: React.FC = () => {
                         {locks.map(l => (
                           <option key={l.id} value={l.id}>{l.name} ({l.id})</option>
                         ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-mono">Select User</label>
+                      <select
+                        required
+                        value={tempPinUserId}
+                        onChange={(e) => setTempPinUserId(e.target.value)}
+                        disabled={!tempPinLockId || authorizedUsersForPin.length === 0}
+                        className="w-full bg-slate-950/80 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500/50 transition font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {!tempPinLockId ? (
+                          <option value="">Select target lock first</option>
+                        ) : authorizedUsersForPin.length === 0 ? (
+                          <option value="">No authorized users for this lock</option>
+                        ) : (
+                          <>
+                            <option value="">Select User</option>
+                            {authorizedUsersForPin.map(u => (
+                              <option key={u.userId} value={u.userId}>
+                                {u.email} ({u.role})
+                              </option>
+                            ))}
+                          </>
+                        )}
                       </select>
                     </div>
                   </div>
@@ -648,7 +673,8 @@ export const Dashboard: React.FC = () => {
                   <div className="md:col-span-2 pt-2">
                     <button
                       type="submit"
-                      className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-xs font-bold text-white transition active:scale-[0.97]"
+                      disabled={!tempPinLockId || !tempPinUserId || !tempPinVal || tempPinVal.length !== 6 || authorizedUsersForPin.length === 0}
+                      className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-xs font-bold text-white transition active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Issue Temporary Access PIN
                     </button>
@@ -661,7 +687,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Right column: Interactive Visual Keypad Simulator overlay */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 h-full min-h-0">
           <VisualLockKeypad selectedLockId={selectedKeypadLockId} setSelectedLockId={setSelectedKeypadLockId} />
         </div>
 
@@ -790,40 +816,103 @@ export const Dashboard: React.FC = () => {
                     No access records found in database for this device.
                   </div>
                 ) : (
-                  <table className="w-full text-left font-mono text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider">
-                        <th className="py-2.5 px-3 font-semibold text-[10px]">Timestamp</th>
-                        <th className="py-2.5 px-3 font-semibold text-[10px]">Method</th>
-                        <th className="py-2.5 px-3 font-semibold text-[10px]">User Email</th>
-                        <th className="py-2.5 px-3 font-semibold text-[10px]">Result</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 text-slate-300">
-                      {historicalLogs.map((log) => (
-                        <tr key={log.id} className="hover:bg-white/5">
-                          <td className="py-2.5 px-3 whitespace-nowrap text-[11px] text-slate-400">
-                            {new Date(log.timestamp).toLocaleString()}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                              log.method === 'API' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-amber-500/10 text-amber-300'
-                            }`}>
-                              {log.method}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 break-all">
-                            {log.user?.email || 'Guest User'}
-                          </td>
-                          <td className="py-2.5 px-3 font-semibold">
-                            <span className={log.result === 'SUCCESS' ? 'text-emerald-400' : 'text-rose-400'}>
-                              {log.result}
-                            </span>
-                          </td>
+                  <div className="flex flex-col h-full">
+                    {/* Access Audit Stats Overview */}
+                    <div className="grid grid-cols-3 gap-3 mb-4 font-mono text-[9px] uppercase tracking-wider">
+                      <div className="bg-slate-950/60 border border-white/5 rounded-xl p-3 flex flex-col gap-1 text-center">
+                        <span className="text-slate-400">Total Attempts</span>
+                        <span className="text-sm font-bold text-slate-100">{historicalLogs.length}</span>
+                      </div>
+                      <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-3 flex flex-col gap-1 text-center">
+                        <span className="text-emerald-500/80">Access Granted</span>
+                        <span className="text-sm font-bold text-emerald-400">
+                          {historicalLogs.filter(log => log.result === 'SUCCESS').length}
+                        </span>
+                      </div>
+                      <div className="bg-rose-500/5 border border-rose-500/10 rounded-xl p-3 flex flex-col gap-1 text-center">
+                        <span className="text-rose-500/80">Access Denied</span>
+                        <span className="text-sm font-bold text-rose-400">
+                          {historicalLogs.filter(log => log.result !== 'SUCCESS').length}
+                        </span>
+                      </div>
+                    </div>
+
+                    <table className="w-full text-left font-mono text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider">
+                          <th className="py-2.5 px-3 font-semibold text-[10px]">Timestamp</th>
+                          <th className="py-2.5 px-3 font-semibold text-[10px]">Action Type</th>
+                          <th className="py-2.5 px-3 font-semibold text-[10px]">Operator</th>
+                          <th className="py-2.5 px-3 font-semibold text-[10px]">Outcome</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 text-slate-300">
+                        {historicalLogs.map((log) => (
+                          <tr key={log.id} className="hover:bg-white/5">
+                            <td className="py-2.5 px-3 whitespace-nowrap text-[11px] text-slate-400">
+                              {new Date(log.timestamp).toLocaleString()}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {log.method === 'API' ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">
+                                  Remote Cmd
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 uppercase tracking-wider">
+                                  Keypad PIN
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 break-all">
+                              {log.user?.email || (log.method === 'PIN' ? 'Unknown' : 'System')}
+                            </td>
+                            <td className="py-2.5 px-3 font-semibold">
+                              {(() => {
+                                switch (log.result) {
+                                  case 'SUCCESS':
+                                    return (
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        <span className="w-1 h-1 rounded-full bg-emerald-400 shadow-[0_0_4px_#34d399]"></span>
+                                        ACCESS GRANTED
+                                      </span>
+                                    );
+                                  case 'FAILED_UNAUTHORIZED':
+                                    return (
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                        <span className="w-1 h-1 rounded-full bg-rose-400"></span>
+                                        DENIED: INVALID PIN
+                                      </span>
+                                    );
+                                  case 'FAILED_EXPIRED_PIN':
+                                    return (
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                        <span className="w-1 h-1 rounded-full bg-amber-400"></span>
+                                        DENIED: EXPIRED PIN
+                                      </span>
+                                    );
+                                  case 'FAILED_OFFLINE':
+                                    return (
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-800 text-slate-400 border border-white/5">
+                                        <span className="w-1 h-1 rounded-full bg-slate-500"></span>
+                                        FAILED: OFFLINE
+                                      </span>
+                                    );
+                                  case 'FAILED_DEVICE_ERROR':
+                                  default:
+                                    return (
+                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                        <span className="w-1 h-1 rounded-full bg-rose-400"></span>
+                                        FAILED: DEVICE ERROR
+                                      </span>
+                                    );
+                                }
+                              })()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )
               )}
             </div>

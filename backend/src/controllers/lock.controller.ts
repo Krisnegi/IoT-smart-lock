@@ -276,6 +276,19 @@ export const createTempPin = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // 2.5 Verify user is authorized for this lock
+    const permission = await prisma.userLockPermission.findUnique({
+      where: {
+        userId_lockId: {
+          userId,
+          lockId,
+        },
+      },
+    });
+    if (!permission) {
+      return res.status(403).json({ error: 'User must be authorized for this lock before creating a temporary PIN' });
+    }
+
     // Check if an unexpired active temporary PIN already exists for this combination
     const activePin = await prisma.temporaryPin.findFirst({
       where: {
