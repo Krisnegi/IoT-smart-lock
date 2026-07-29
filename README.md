@@ -41,15 +41,15 @@ graph TD
     %% Connections
     Dashboard -->|REST API / HTTP| Express
     Keypad -->|REST API / Key Clicks| Express
-    WS <-->|WebSockets (Live Logs & Status)| Dashboard
-    Express <-->|Pub/Sub commands/acks| Mosquitto
-    Express <-->|Database Queries| Prisma
+    WS <->|WebSockets (Live Logs & Status)| Dashboard
+    Express <->|Pub/Sub commands/acks| Mosquitto
+    Express <->|Database Queries| Prisma
     Express -->|Schedule Expiration Jobs| Redis
-    BullMQ <-->|Poll Delayed Jobs| Redis
+    BullMQ <->|Poll Delayed Jobs| Redis
     BullMQ -->|Deactivate PINs| Prisma
     Heartbeat -->|Check Offline Devices| Prisma
     Heartbeat -->|Broadcast Status Change| WS
-    Simulator <-->|Pub/Sub heartbeats/PIN validate| Mosquitto
+    Simulator <->|Pub/Sub heartbeats/PIN validate| Mosquitto
 ```
 
 ---
