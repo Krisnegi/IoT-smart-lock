@@ -7,7 +7,6 @@ export const LoginScreen: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [role, setRole] = useState<'ADMIN' | 'USER'>('USER');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -16,12 +15,27 @@ export const LoginScreen: React.FC = () => {
     setError('');
     setLoading(true);
 
+    // Validate email format (strict check)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address (e.g., user@example.com)');
+      setLoading(false);
+      return;
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isRegistering) {
         const regRes = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, role }),
+          body: JSON.stringify({ email, password, role: 'USER' }),
         });
 
         const regData = await regRes.json();
@@ -128,22 +142,6 @@ export const LoginScreen: React.FC = () => {
                 className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-indigo-500/50 transition"
               />
             </div>
-
-            {isRegistering && (
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
-                  Select User Role
-                </label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as any)}
-                  className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-indigo-500/50 transition"
-                >
-                  <option value="USER">USER (Access Only)</option>
-                  <option value="ADMIN">ADMIN (CRUD locks & permissions)</option>
-                </select>
-              </div>
-            )}
           </div>
 
           <button

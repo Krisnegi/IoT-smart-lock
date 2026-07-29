@@ -13,6 +13,22 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Please enter a valid email address (e.g., user@example.com)' });
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    // Block registering as ADMIN
+    if (role === Role.ADMIN) {
+      return res.status(403).json({ error: 'Registration of ADMIN accounts is not permitted' });
+    }
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {

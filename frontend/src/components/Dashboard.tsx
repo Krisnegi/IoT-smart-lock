@@ -696,7 +696,7 @@ export const Dashboard: React.FC = () => {
       {/* HISTORICAL AUDIT LOGS MODAL */}
       {viewingLogsLockId && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col p-6 shadow-2xl">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col p-4 sm:p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
               <div>
                 <h3 className="text-md font-bold font-mono text-slate-100 uppercase">Lock Inspection</h3>
@@ -768,47 +768,49 @@ export const Dashboard: React.FC = () => {
                     No users authorized for this device.
                   </div>
                 ) : (
-                  <table className="w-full text-left font-mono text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider">
-                        <th className="py-2.5 px-3 font-semibold text-[10px]">User Email</th>
-                        <th className="py-2.5 px-3 font-semibold text-[10px]">PIN Code Status</th>
-                        <th className="py-2.5 px-3 font-semibold text-[10px]">Expires At</th>
-                        <th className="py-2.5 px-3 font-semibold text-[10px]">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 text-slate-300">
-                      {authorizedUsers.map((item) => (
-                        <tr key={item.userId} className="hover:bg-white/5">
-                          <td className="py-2.5 px-3 break-all font-semibold">
-                            {item.email}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            {item.latestPin ? (
-                              getExpiryText(item.latestPin.expiresAt, item.latestPin.isActive)
-                            ) : (
-                              <span className="text-slate-500 uppercase tracking-wider text-[10px]">Pin Not Issued</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-400 text-[11px]">
-                            {item.latestPin ? (
-                              new Date(item.latestPin.expiresAt).toLocaleString()
-                            ) : (
-                              <span className="text-slate-600">-</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <button
-                              onClick={() => handleRevokePermission(item.userId, viewingLogsLockId!)}
-                              className="text-rose-400 hover:text-rose-300 font-bold uppercase tracking-wider text-[10px] hover:underline"
-                            >
-                              Revoke Access
-                            </button>
-                          </td>
+                  <div className="overflow-x-auto w-full border border-white/5 rounded-xl">
+                    <table className="w-full text-left font-mono text-xs border-collapse min-w-[550px]">
+                      <thead>
+                        <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider bg-slate-950/40">
+                          <th className="py-2.5 px-3 font-semibold text-[10px]">User Email</th>
+                          <th className="py-2.5 px-3 font-semibold text-[10px]">PIN Code Status</th>
+                          <th className="py-2.5 px-3 font-semibold text-[10px]">Expires At</th>
+                          <th className="py-2.5 px-3 font-semibold text-[10px]">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 text-slate-300">
+                        {authorizedUsers.map((item) => (
+                          <tr key={item.userId} className="hover:bg-white/5">
+                            <td className="py-2.5 px-3 break-all font-semibold">
+                              {item.email}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {item.latestPin ? (
+                                getExpiryText(item.latestPin.expiresAt, item.latestPin.isActive)
+                              ) : (
+                                <span className="text-slate-500 uppercase tracking-wider text-[10px]">Pin Not Issued</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-400 text-[11px]">
+                              {item.latestPin ? (
+                                new Date(item.latestPin.expiresAt).toLocaleString()
+                              ) : (
+                                <span className="text-slate-600">-</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <button
+                                onClick={() => handleRevokePermission(item.userId, viewingLogsLockId!)}
+                                className="text-rose-400 hover:text-rose-300 font-bold uppercase tracking-wider text-[10px] hover:underline"
+                              >
+                                Revoke Access
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )
               ) : (
                 historicalLogs.length === 0 ? (
@@ -837,81 +839,83 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <table className="w-full text-left font-mono text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider">
-                          <th className="py-2.5 px-3 font-semibold text-[10px]">Timestamp</th>
-                          <th className="py-2.5 px-3 font-semibold text-[10px]">Action Type</th>
-                          <th className="py-2.5 px-3 font-semibold text-[10px]">Operator</th>
-                          <th className="py-2.5 px-3 font-semibold text-[10px]">Outcome</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5 text-slate-300">
-                        {historicalLogs.map((log) => (
-                          <tr key={log.id} className="hover:bg-white/5">
-                            <td className="py-2.5 px-3 whitespace-nowrap text-[11px] text-slate-400">
-                              {new Date(log.timestamp).toLocaleString()}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              {log.method === 'API' ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">
-                                  Remote Cmd
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 uppercase tracking-wider">
-                                  Keypad PIN
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 break-all">
-                              {log.user?.email || (log.method === 'PIN' ? 'Unknown' : 'System')}
-                            </td>
-                            <td className="py-2.5 px-3 font-semibold">
-                              {(() => {
-                                switch (log.result) {
-                                  case 'SUCCESS':
-                                    return (
-                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                        <span className="w-1 h-1 rounded-full bg-emerald-400 shadow-[0_0_4px_#34d399]"></span>
-                                        ACCESS GRANTED
-                                      </span>
-                                    );
-                                  case 'FAILED_UNAUTHORIZED':
-                                    return (
-                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                                        <span className="w-1 h-1 rounded-full bg-rose-400"></span>
-                                        DENIED: INVALID PIN
-                                      </span>
-                                    );
-                                  case 'FAILED_EXPIRED_PIN':
-                                    return (
-                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                        <span className="w-1 h-1 rounded-full bg-amber-400"></span>
-                                        DENIED: EXPIRED PIN
-                                      </span>
-                                    );
-                                  case 'FAILED_OFFLINE':
-                                    return (
-                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-800 text-slate-400 border border-white/5">
-                                        <span className="w-1 h-1 rounded-full bg-slate-500"></span>
-                                        FAILED: OFFLINE
-                                      </span>
-                                    );
-                                  case 'FAILED_DEVICE_ERROR':
-                                  default:
-                                    return (
-                                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                                        <span className="w-1 h-1 rounded-full bg-rose-400"></span>
-                                        FAILED: DEVICE ERROR
-                                      </span>
-                                    );
-                                }
-                              })()}
-                            </td>
+                    <div className="overflow-x-auto w-full border border-white/5 rounded-xl">
+                      <table className="w-full text-left font-mono text-xs border-collapse min-w-[600px]">
+                        <thead>
+                          <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider bg-slate-950/40">
+                            <th className="py-2.5 px-3 font-semibold text-[10px]">Timestamp</th>
+                            <th className="py-2.5 px-3 font-semibold text-[10px]">Action Type</th>
+                            <th className="py-2.5 px-3 font-semibold text-[10px]">Operator</th>
+                            <th className="py-2.5 px-3 font-semibold text-[10px]">Outcome</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-slate-300">
+                          {historicalLogs.map((log) => (
+                            <tr key={log.id} className="hover:bg-white/5">
+                              <td className="py-2.5 px-3 whitespace-nowrap text-[11px] text-slate-400">
+                                {new Date(log.timestamp).toLocaleString()}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                {log.method === 'API' ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">
+                                    Remote Cmd
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 uppercase tracking-wider">
+                                    Keypad PIN
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 break-all">
+                                {log.user?.email || (log.method === 'PIN' ? 'Unknown' : 'System')}
+                              </td>
+                              <td className="py-2.5 px-3 font-semibold">
+                                {(() => {
+                                  switch (log.result) {
+                                    case 'SUCCESS':
+                                      return (
+                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                          <span className="w-1 h-1 rounded-full bg-emerald-400 shadow-[0_0_4px_#34d399]"></span>
+                                          ACCESS GRANTED
+                                        </span>
+                                      );
+                                    case 'FAILED_UNAUTHORIZED':
+                                      return (
+                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                          <span className="w-1 h-1 rounded-full bg-rose-400"></span>
+                                          DENIED: INVALID PIN
+                                        </span>
+                                      );
+                                    case 'FAILED_EXPIRED_PIN':
+                                      return (
+                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                          <span className="w-1 h-1 rounded-full bg-amber-400"></span>
+                                          DENIED: EXPIRED PIN
+                                        </span>
+                                      );
+                                    case 'FAILED_OFFLINE':
+                                      return (
+                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-800 text-slate-400 border border-white/5">
+                                          <span className="w-1 h-1 rounded-full bg-slate-500"></span>
+                                          FAILED: OFFLINE
+                                        </span>
+                                      );
+                                    case 'FAILED_DEVICE_ERROR':
+                                    default:
+                                      return (
+                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                          <span className="w-1 h-1 rounded-full bg-rose-400"></span>
+                                          FAILED: DEVICE ERROR
+                                        </span>
+                                      );
+                                  }
+                                })()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )
               )}
@@ -922,7 +926,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Floating Toast Notification Overlay */}
       {(formSuccess || formError) && (
-        <div className="fixed top-6 right-6 z-[9999] w-full max-w-sm animate-fade-in pointer-events-auto">
+        <div className="fixed top-4 left-4 right-4 md:top-6 md:right-6 md:left-auto z-[9999] md:w-full md:max-w-sm animate-fade-in pointer-events-auto">
           <div className={`p-4 rounded-xl border backdrop-blur-xl shadow-2xl flex items-center gap-3 font-mono text-xs ${
             formSuccess 
               ? 'bg-slate-950/90 border-emerald-500/30 text-emerald-400 shadow-emerald-500/5' 

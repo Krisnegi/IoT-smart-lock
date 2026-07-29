@@ -51,6 +51,27 @@
           "result": { "type": "string", "enum": ["SUCCESS", "FAILED_UNAUTHORIZED", "FAILED_EXPIRED_PIN", "FAILED_OFFLINE", "FAILED_DEVICE_ERROR"] },
           "timestamp": { "type": "string", "format": "date-time" }
         }
+      },
+      "TemporaryPin": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "lockId": { "type": "string" },
+          "userId": { "type": "string", "format": "uuid" },
+          "pin": { "type": "string" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "isActive": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UserLockPermission": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "lockId": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
       }
     }
   },
