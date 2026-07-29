@@ -2,59 +2,7 @@
 
 A production-grade, full-stack IoT Smart Lock simulation and administration platform. This system implements a complete request-acknowledgement flow, temporary guest PIN codes with background auto-expiration workers, real-time device heartbeat monitoring, offline device detection, and a reactive dashboard with live WebSocket feeds and a visual mock hardware keypad simulator.
 
----
 
-## 🏗️ Architecture & E2E Flows
-
-The system leverages a decoupled event-driven architecture connecting a React frontend, an Express REST/WebSocket server, a PostgreSQL database, a Redis-backed BullMQ worker queue, and an MQTT broker.
-
-### System Diagram
-
-```mermaid
-graph TD
-    %% Frontend Layer
-    subgraph Frontend ["React SPA (Vite + Tailwind)"]
-        Dashboard["Admin & Access Dashboard"]
-        Keypad["Virtual Lock Keypad"]
-    end
-
-    %% API / Gateway Layer
-    subgraph Gateway ["API & Communication Gateway"]
-        Express["Express Server (Port 3000)"]
-        WS["WebSocket Server (ws)"]
-    end
-
-    %% Database & Messaging Broker Layer
-    subgraph Broker ["Message & Job Brokers"]
-        Mosquitto["Eclipse Mosquitto MQTT Broker (Port 1883)"]
-        Redis["Redis Memory Store (Port 6380)"]
-    end
-
-    %% Backend Background Services
-    subgraph Services ["Backend Services"]
-        Prisma["Prisma ORM & PostgreSQL (Port 5433)"]
-        BullMQ["BullMQ Worker (PIN Expiration)"]
-        Heartbeat["Background Heartbeat Monitor"]
-        Simulator["Virtual Device Simulator (Demo Mode)"]
-    end
-
-    %% Connections
-    Dashboard -->|REST API / HTTP| Express
-    Keypad -->|REST API / Key Clicks| Express
-    Express -->|WebSockets (Live Logs & Status)| Dashboard
-    Express -->|Publish commands| Mosquitto
-    Mosquitto -->|Deliver ACKs & Events| Express
-    Express -->|Database Queries| Prisma
-    Express -->|Schedule Expiration Jobs| Redis
-    BullMQ -->|Poll Delayed Jobs| Redis
-    BullMQ -->|Deactivate PINs| Prisma
-    Heartbeat -->|Check Offline Devices| Prisma
-    Heartbeat -->|Broadcast Status Change| WS
-    Simulator -->|Publish heartbeats & PIN validate| Mosquitto
-    Mosquitto -->|Deliver replies & events| Simulator
-```
-
----
 
 ## ⚡ Core Features
 
