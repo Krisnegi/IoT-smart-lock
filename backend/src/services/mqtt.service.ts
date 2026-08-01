@@ -4,6 +4,7 @@ import { prisma } from '../config/db';
 import { AccessMethod, AccessResult, LockStatus } from '@prisma/client';
 import { broadcastEvent } from '../ws';
 import bcrypt from 'bcrypt';
+import { redis } from '../config/redis';
 
 // Map of virtualTransactionId -> pin (to simulate hardware PIN confirmations in browser)
 export const virtualSimulatorTransactions = new Map<string, string>();
@@ -172,6 +173,11 @@ export const initMqttSubscriptions = () => {
             data: { status: 'UNLOCKED' },
           });
 
+          // Sync status to Redis cache
+          await redis.set(`lock:${lockId}:status`, 'UNLOCKED');
+          await redis.set(`lock:${lockId}:is_online`, 'true');
+          await redis.set(`lock:${lockId}:heartbeat`, Date.now().toString());
+
           broadcastEvent('LOCK_UNLOCKED', {
             lockId,
             method: 'PIN',
@@ -188,37 +194,63 @@ export const initMqttSubscriptions = () => {
         const lockId = heartbeatMatch[1];
         const { status } = data; // LOCKED or UNLOCKED
 
-        const lock = await prisma.lock.findUnique({ where: { id: lockId } });
-        if (lock) {
-          const wasOffline = !lock.isOnline;
-          const statusChanged = lock.status !== status;
-
-          await prisma.lock.update({
-            where: { id: lockId },
-            data: {
-              lastHeartbeat: new Date(),
-              isOnline: true,
-              status: status as any,
-            },
-          });
-
-          // Broadcast if lock transitioned from offline to online
-          if (wasOffline) {
-            console.log(`📡 Lock [${lockId}] is now ONLINE.`);
-            broadcastEvent('LOCK_ONLINE', {
-              lockId,
-              message: `Lock ${lockId} has connected online`,
-            });
+        // Check cache if lock is registered to avoid DB queries
+        let isRegistered = await redis.get(`lock:${lockId}:registered`);
+        if (isRegistered === null) {
+          const dbLock = await prisma.lock.findUnique({ where: { id: lockId } });
+          if (dbLock) {
+            await redis.set(`lock:${lockId}:registered`, 'true');
+            await redis.set(`lock:${lockId}:is_online`, dbLock.isOnline ? 'true' : 'false');
+            await redis.set(`lock:${lockId}:status`, dbLock.status);
+            isRegistered = 'true';
+          } else {
+            await redis.set(`lock:${lockId}:registered`, 'false');
+            isRegistered = 'false';
           }
+        }
 
-          // Broadcast if lock status changed via heartbeat update (like auto-relock)
-          if (statusChanged && !wasOffline) {
-            console.log(`📡 Lock [${lockId}] status changed to ${status} via heartbeat.`);
-            broadcastEvent('LOCK_STATUS_CHANGED', {
-              lockId,
-              status,
-              message: `Lock ${lockId} auto-relocked to ${status}`,
+        if (isRegistered === 'true') {
+          const isOnlineCached = await redis.get(`lock:${lockId}:is_online`);
+          const statusCached = await redis.get(`lock:${lockId}:status`);
+
+          const wasOffline = isOnlineCached !== 'true';
+          const statusChanged = statusCached !== status;
+
+          // Update heartbeat timestamp in Redis
+          await redis.set(`lock:${lockId}:heartbeat`, Date.now().toString());
+
+          if (wasOffline || statusChanged) {
+            // Write transition state to PostgreSQL
+            await prisma.lock.update({
+              where: { id: lockId },
+              data: {
+                lastHeartbeat: new Date(),
+                isOnline: true,
+                status: status as any,
+              },
             });
+
+            // Update Redis cache
+            await redis.set(`lock:${lockId}:is_online`, 'true');
+            await redis.set(`lock:${lockId}:status`, status);
+
+            // Broadcast only on state transitions
+            if (wasOffline) {
+              console.log(`📡 Lock [${lockId}] is now ONLINE (transition).`);
+              broadcastEvent('LOCK_ONLINE', {
+                lockId,
+                message: `Lock ${lockId} has connected online`,
+              });
+            }
+
+            if (statusChanged && !wasOffline) {
+              console.log(`📡 Lock [${lockId}] status changed to ${status} via heartbeat (transition).`);
+              broadcastEvent('LOCK_STATUS_CHANGED', {
+                lockId,
+                status,
+                message: `Lock ${lockId} auto-relocked to ${status}`,
+              });
+            }
           }
         }
         return;

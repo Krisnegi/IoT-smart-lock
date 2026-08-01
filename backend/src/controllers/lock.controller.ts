@@ -7,6 +7,7 @@ import bcrypt from 'bcrypt';
 import { schedulePinExpiration } from '../queues/pin-expiration.queue';
 import { broadcastEvent } from '../ws';
 import { registerDynamicDemoSimulator } from '../services/demo-simulator.service';
+import { redis } from '../config/redis';
 
 export const createLock = async (req: Request, res: Response) => {
   try {
@@ -26,6 +27,11 @@ export const createLock = async (req: Request, res: Response) => {
     const lock = await prisma.lock.create({
       data: { id: lockId, name },
     });
+
+    // Sync to Redis cache
+    await redis.set(`lock:${lockId}:registered`, 'true');
+    await redis.set(`lock:${lockId}:is_online`, 'false');
+    await redis.set(`lock:${lockId}:status`, 'LOCKED');
 
     // Register simulator client dynamically if in DEMO_MODE
     registerDynamicDemoSimulator(lockId);
@@ -93,6 +99,11 @@ export const updateLock = async (req: Request, res: Response) => {
       },
     });
 
+    // Sync status to Redis cache if updated
+    if (status !== undefined) {
+      await redis.set(`lock:${lockId}:status`, status);
+    }
+
     return res.status(200).json({
       message: 'Lock updated successfully',
       lock,
@@ -114,6 +125,14 @@ export const deleteLock = async (req: Request, res: Response) => {
     }
 
     await prisma.lock.delete({ where: { id: lockId } });
+
+    // Purge lock keys from Redis cache
+    await redis.del(
+      `lock:${lockId}:registered`,
+      `lock:${lockId}:is_online`,
+      `lock:${lockId}:status`,
+      `lock:${lockId}:heartbeat`
+    );
 
     return res.status(200).json({ message: `Lock '${id}' deleted successfully` });
   } catch (error) {
@@ -186,6 +205,9 @@ export const unlockLock = async (req: Request, res: Response) => {
         where: { id: lockId },
         data: { status: targetStatus },
       });
+
+      // Sync status to Redis cache
+      await redis.set(`lock:${lockId}:status`, targetStatus);
 
       // Log successful access attempt
       await prisma.accessLog.create({

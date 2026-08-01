@@ -14,11 +14,13 @@ A production-grade, full-stack IoT Smart Lock simulation and administration plat
    * Leverages **BullMQ** and **Redis** to run background delayed workers that automatically expire and deactivate PIN keys the instant their duration elapsed.
 3. **Heartbeat Monitoring & Offline Detection**:
    * Physical/Virtual locks publish heartbeats every 10 seconds.
-   * A background cron checker runs every 15 seconds. If a device misses its heartbeats for over 30 seconds, it is marked `OFFLINE` and alerts are broadcasted.
+   * Caches heartbeat timestamps, registered checks, and online states in **Redis** in-memory cache to prevent constant PostgreSQL read/write queries.
+   * A background cron checker runs every 15 seconds, querying Redis status timestamps. If a device has not sent a heartbeat for over 30 seconds, it transitions to `OFFLINE` in the database and broadcasts `LOCK_OFFLINE` to connected screens.
 4. **Instant Auto-Relocking**:
    * Hardware simulates auto-relock mechanical safety and transitions state back to `LOCKED` 30 seconds after any successful PIN or API unlock.
-5. **Real-time Live Event Streaming**:
-   * Full WebSocket stream pipes locks' status updates and access activity logs (successes, incorrect PIN shakes, expired attempt blocks, and offline states) to the admin console instantly.
+5. **Real-time Live Event Streaming (Delta Updates)**:
+   * Full WebSocket stream pipes lock status changes and access logs to the admin console instantly.
+   * **Delta Updates**: WebSockets broadcast events only when a device actually transitions state (e.g. ONLINE <-> OFFLINE or LOCKED <-> UNLOCKED), significantly optimizing network traffic.
 6. **OpenAPI API Documentation**:
    * Complete API specifications with sandbox testing capabilities served via Swagger UI.
 
