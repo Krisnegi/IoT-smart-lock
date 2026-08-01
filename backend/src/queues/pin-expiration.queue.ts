@@ -1,14 +1,19 @@
 import { Queue } from 'bullmq';
+import Redis from 'ioredis';
 import { config } from '../config';
 
 const QUEUE_NAME = 'pin-expiration';
 
-// Connect BullMQ to our local Redis instance
+// Connect BullMQ to Redis instance using URL or options
+const connection = config.redis.url
+  ? new Redis(config.redis.url, { maxRetriesPerRequest: null })
+  : {
+      host: config.redis.host,
+      port: config.redis.port,
+    };
+
 export const pinExpirationQueue = new Queue(QUEUE_NAME, {
-  connection: {
-    host: config.redis.host,
-    port: config.redis.port,
-  },
+  connection,
 });
 
 /**

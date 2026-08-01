@@ -1,6 +1,14 @@
 import { Worker, Job } from 'bullmq';
+import Redis from 'ioredis';
 import { config } from '../config';
 import { prisma } from '../config/db';
+
+const connection = config.redis.url
+  ? new Redis(config.redis.url, { maxRetriesPerRequest: null })
+  : {
+      host: config.redis.host,
+      port: config.redis.port,
+    };
 
 const QUEUE_NAME = 'pin-expiration';
 
@@ -39,10 +47,7 @@ export const pinExpirationWorker = new Worker(
     }
   },
   {
-    connection: {
-      host: config.redis.host,
-      port: config.redis.port,
-    },
+    connection,
   }
 );
 
