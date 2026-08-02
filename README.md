@@ -2,6 +2,9 @@
 
 A production-grade, full-stack IoT Smart Lock simulation and administration platform. This system implements a complete request-acknowledgement flow, temporary guest PIN codes with background auto-expiration workers, real-time device heartbeat monitoring, offline device detection, and a reactive dashboard with live WebSocket feeds and a visual mock hardware keypad simulator.
 
+### 🌐 Live Demo: [https://iot-smart-lock.onrender.com/dashboard/](https://iot-smart-lock.onrender.com/dashboard/)
+*(Log in using the **One-Click Demo Admin** credentials on the screen)*
+
 
 
 ## ⚡ Core Features
