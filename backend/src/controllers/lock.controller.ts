@@ -8,6 +8,7 @@ import { schedulePinExpiration } from '../queues/pin-expiration.queue';
 import { broadcastEvent } from '../ws';
 import { registerDynamicDemoSimulator } from '../services/demo-simulator.service';
 import { redis } from '../config/redis';
+import { publishLockEvent } from '../services/eventPublisher';
 
 export const createLock = async (req: Request, res: Response) => {
   try {
@@ -183,6 +184,15 @@ export const unlockLock = async (req: Request, res: Response) => {
           message: `Unauthorized remote unlock attempt on lock ${lockId} by ${user.email}`,
         });
 
+        await publishLockEvent({
+          lockId,
+          eventType: 'ACCESS_DENIED',
+          method: 'API',
+          userId: user.id,
+          status: 'FAILED_UNAUTHORIZED',
+          details: `Unauthorized remote unlock attempt by ${user.email}`,
+        });
+
         return res.status(403).json({ error: 'Forbidden: You do not have permission to unlock this lock' });
       }
     }
@@ -231,6 +241,15 @@ export const unlockLock = async (req: Request, res: Response) => {
         message: eventMessage,
       });
 
+      await publishLockEvent({
+        lockId,
+        eventType: targetStatus === LockStatus.UNLOCKED ? 'REMOTE_UNLOCK' : 'REMOTE_LOCK',
+        method: 'API',
+        userId: user.id,
+        status: 'SUCCESS',
+        details: `Remote ${command.toLowerCase()} command executed by ${user.email}`,
+      });
+
       return res.status(200).json({
         message: `${command === 'UNLOCK' ? 'Unlock' : 'Lock'} command executed successfully`,
         lock: updatedLock,
@@ -259,6 +278,15 @@ export const unlockLock = async (req: Request, res: Response) => {
         user: { id: user.id, email: user.email },
         reason: accessResult,
         message: `Remote unlock failed for lock ${lockId}: ${cmdError.message}`,
+      });
+
+      await publishLockEvent({
+        lockId,
+        eventType: 'ACCESS_DENIED',
+        method: 'API',
+        userId: user.id,
+        status: accessResult === AccessResult.FAILED_OFFLINE ? 'FAILED_OFFLINE' : 'FAILED_DEVICE_ERROR',
+        details: `Remote unlock failed: ${cmdError.message}`,
       });
 
       return res.status(504).json({

@@ -1,6 +1,7 @@
 import { prisma } from '../config/db';
 import { broadcastEvent } from '../ws';
 import { redis } from '../config/redis';
+import { publishLockEvent } from './eventPublisher';
 
 const CHECK_INTERVAL_MS = 15000; // Check every 15 seconds
 const OFFLINE_THRESHOLD_MS = 30000; // Flag offline if no heartbeat for 30 seconds
@@ -55,6 +56,14 @@ export const startHeartbeatChecker = () => {
           broadcastEvent('LOCK_OFFLINE', {
             lockId: lock.id,
             message: `Lock '${lock.id}' went offline (lost heartbeat)`,
+          });
+
+          await publishLockEvent({
+            lockId: lock.id,
+            eventType: 'OFFLINE_DETECTED',
+            method: 'SYSTEM',
+            status: 'FAILED_OFFLINE',
+            details: `Lock went offline after missing heartbeat for >30s`,
           });
         }
       }

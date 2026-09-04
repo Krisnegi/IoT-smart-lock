@@ -5,6 +5,7 @@ import { AccessMethod, AccessResult, LockStatus } from '@prisma/client';
 import { broadcastEvent } from '../ws';
 import bcrypt from 'bcrypt';
 import { redis } from '../config/redis';
+import { publishLockEvent } from './eventPublisher';
 
 // Map of virtualTransactionId -> pin (to simulate hardware PIN confirmations in browser)
 export const virtualSimulatorTransactions = new Map<string, string>();
@@ -109,6 +110,15 @@ export const initMqttSubscriptions = () => {
             reason: 'FAILED_UNAUTHORIZED',
             message: `Access denied at lock ${lockId}: Invalid PIN typed`,
           });
+
+          await publishLockEvent({
+            lockId,
+            eventType: 'PIN_FAILED',
+            method: 'PIN',
+            pinUsed: pin,
+            status: 'FAILED_UNAUTHORIZED',
+            details: 'Access denied: Invalid PIN typed on keypad',
+          });
           return;
         }
 
@@ -134,6 +144,16 @@ export const initMqttSubscriptions = () => {
             reason: 'FAILED_EXPIRED_PIN',
             userId: pinRecord.userId,
             message: `Access denied at lock ${lockId}: Expired PIN typed`,
+          });
+
+          await publishLockEvent({
+            lockId,
+            eventType: 'PIN_FAILED',
+            method: 'PIN',
+            userId: pinRecord.userId,
+            pinUsed: pin,
+            status: 'FAILED_EXPIRED_PIN',
+            details: 'Access denied: Expired PIN typed on keypad',
           });
           return;
         }
@@ -183,6 +203,16 @@ export const initMqttSubscriptions = () => {
             method: 'PIN',
             userId,
             message: `Lock ${lockId} unlocked successfully via Keypad PIN`,
+          });
+
+          await publishLockEvent({
+            lockId,
+            eventType: 'PIN_SUCCESS',
+            method: 'PIN',
+            userId,
+            pinUsed: pin,
+            status: 'SUCCESS',
+            details: 'Access granted via Keypad PIN',
           });
         }
         return;
