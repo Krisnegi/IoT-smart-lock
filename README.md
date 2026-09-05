@@ -32,33 +32,43 @@ A production-grade, full-stack IoT Smart Lock simulation and administration plat
 ## 🛠️ Technology Stack
 
 * **Frontend**: React (Vite), TypeScript, Tailwind CSS, Lucide Icons, native WebSockets.
-* **Backend**: Node.js, Express, TypeScript, Prisma ORM (PostgreSQL), ws.
-* **Asynchronous Jobs**: BullMQ, Redis.
-* **IoT Protocols**: MQTT (eclipse-mosquitto broker).
-* **Documentation**: Swagger UI, OpenAPI 3.0.
+* **IoT Gateway Service**: Node.js, Express, TypeScript, Prisma ORM, ws.
+* **Enterprise Audit Microservice**: Java 21 LTS, Spring Boot 3, Spring Data JPA, Hibernate ORM, Flyway SQL Migrations.
+* **Event Ingestion & Jobs**: Redis Pub/Sub, BullMQ.
+* **IoT Protocols**: MQTT (Eclipse Mosquitto broker).
+* **API Documentation**: Swagger UI / OpenAPI 3.0 (`http://localhost:8080/swagger-ui.html`).
 
 ---
 
 ## 📁 Directory Structure
 
 ```text
-├── backend/                      # Node.js + Express backend service
+├── backend/                      # Node.js + Express IoT Edge Gateway Service
 │   ├── prisma/                   # Prisma database schemas & migrations
 │   └── src/
 │       ├── config/               # Database, MQTT, and Swagger definitions
 │       ├── controllers/          # Request logic (auth, locks, permissions, simulator)
-│       ├── middlewares/          # JWT authentication & Role-Based Access controls
 │       ├── queues/               # BullMQ delayed workers for PIN auto-expiration
-│       ├── routes/               # API endpoints mappings
-│       ├── services/             # MQTT services, transaction trackers, & heartbeats
-│       ├── ws/                   # WebSocket server broadcast managers
-│       └── server.ts             # Application entrypoint
-├── frontend/                     # React + Vite single page application
+│       ├── services/             # MQTT services, eventPublisher, & heartbeats
+│       └── ws/                   # WebSocket server broadcast managers
+├── java-audit-service/           # Java 21 / Spring Boot 3 Enterprise Audit Microservice
+│   ├── pom.xml                   # Maven build configuration
+│   ├── Dockerfile                # Multi-stage container build
 │   └── src/
-│       ├── components/           # UI views (Dashboard, Keypad Dial, Login, Toasts)
-│       ├── context/              # Authentication & WebSocket contexts
-│       └── main.tsx              # React mounting root
-└── docker-compose.yml            # Docker container configurations for PG, Redis & MQTT
+│       ├── main/
+│       │   ├── java/com/smartlock/audit/
+│       │   │   ├── config/       # Redis Pub/Sub listener config
+│       │   │   ├── controller/   # AuditLog REST Controller
+│       │   │   ├── dto/          # Event DTOs & AuditStatsDto
+│       │   │   ├── entity/       # JPA/Hibernate Entities (AuditLog, SecurityAnomaly)
+│       │   │   ├── repository/   # Spring Data JPA Repositories
+│       │   │   └── service/      # AuditService & AnomalyDetectionRulesEngine
+│       │   └── resources/
+│       │       ├── application.yml
+│       │       └── db/migration/ # Flyway SQL migration scripts (V1__init_audit_schema.sql)
+│       └── test/                 # JUnit 5 & Mockito test suite
+├── frontend/                     # React + Vite single page application
+└── docker-compose.yml            # Multi-service container orchestration (PG, Redis, MQTT, Java Service)
 ```
 
 ---
