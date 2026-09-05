@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import { prisma } from './db';
+import { redis } from './redis';
 import { Role } from '@prisma/client';
 
 /**
@@ -38,13 +39,27 @@ export const seedDatabase = async () => {
         data: {
           id: 'front-gate-01',
           name: 'Front Gate Lock',
-          isOnline: false,
+          isOnline: true,
+          lastHeartbeat: new Date(),
         },
       });
       console.log("🔒 Seeded default lock 'front-gate-01'.");
     } else {
-      console.log("ℹ️ Default lock 'front-gate-01' already exists.");
+      lock = await prisma.lock.update({
+        where: { id: 'front-gate-01' },
+        data: {
+          isOnline: true,
+          lastHeartbeat: new Date(),
+        },
+      });
+      console.log("ℹ️ Updated lock 'front-gate-01' status to ONLINE.");
     }
+
+    // Sync Redis cache state
+    await redis.set('lock:front-gate-01:registered', 'true');
+    await redis.set('lock:front-gate-01:is_online', 'true');
+    await redis.set('lock:front-gate-01:status', 'LOCKED');
+    await redis.set('lock:front-gate-01:heartbeat', Date.now().toString());
 
     // 3. Grant Permission
     const permission = await prisma.userLockPermission.findFirst({
